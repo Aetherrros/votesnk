@@ -1,0 +1,43 @@
+name: Build IPA
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Installer les dépendances
+        run: npm install
+
+      - name: Générer le projet iOS
+        run: npx expo prebuild --platform ios
+
+      - name: Compiler (sans signature)
+        working-directory: ios
+        run: |
+          WS=$(ls -d *.xcworkspace | head -n 1)
+          SCHEME="${WS%.xcworkspace}"
+          xcodebuild -quiet -workspace "$WS" -scheme "$SCHEME" \
+            -configuration Release -sdk iphoneos -destination 'generic/platform=iOS' \
+            -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY=""
+
+      - name: Créer le fichier .ipa
+        working-directory: ios
+        run: |
+          APP=$(find build/Build/Products/Release-iphoneos -maxdepth 1 -name "*.app" | head -n 1)
+          mkdir Payload
+          cp -R "$APP" Payload/
+          zip -qr ../VoteSNKMC.ipa Payload
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: VoteSNKMC-ipa
+          path: VoteSNKMC.ipa
