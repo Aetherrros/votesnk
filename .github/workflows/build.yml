@@ -29,16 +29,16 @@ jobs:
             -derivedDataPath build \
             CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY=""
 
-      - name: Préparer pour Sideloadly
+      - name: Préparer IPA sans modifier les frameworks
         working-directory: ios
         run: |
-          APP=$(find build/Build/Products/Release-iphoneos -maxdepth 1 -name "*.app" | head -n 1)
-          find "$APP/Frameworks" -mindepth 2 -maxdepth 2 -name "*.bundle" -type d -exec rm -rf {} + || true
-          for fw in "$APP"/Frameworks/*.framework; do codesign --force --sign - "$fw" || true; done
-          codesign --force --sign - "$APP" || true
-          mkdir Payload
-          cp -R "$APP" Payload/
-          zip -qr ../VoteSNKMC.ipa Payload
+          set -euo pipefail
+          APP=$(find build/Build/Products/Release-iphoneos -maxdepth 1 -type d -name "*.app" -print -quit)
+          test -n "$APP"
+          mkdir -p Payload
+          ditto "$APP" "Payload/$(basename "$APP")"
+          ditto -c -k --sequesterRsrc --keepParent Payload ../VoteSNKMC.ipa
+          unzip -t ../VoteSNKMC.ipa | tail -n 1
 
       - uses: actions/upload-artifact@v4
         with:
