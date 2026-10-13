@@ -8,6 +8,40 @@
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.votesnkmc.app"
-    }
+    },
+    "plugins": [
+      [
+        "expo-notifications",
+        {
+          "sounds": [
+            "./assets/sounds/son_01.wav",
+            "./assets/sounds/son_02.wav",
+            "./assets/sounds/son_03.wav",
+            "./assets/sounds/son_04.wav",
+            "./assets/sounds/son_05.wav",
+            "./assets/sounds/son_06.wav",
+            "./assets/sounds/son_07.wav",
+            "./assets/sounds/son_08.wav",
+            "./assets/sounds/son_09.wav",
+            "./assets/sounds/son_10.wav",
+            "./assets/sounds/son_11.wav",
+            "./assets/sounds/son_12.wav",
+            "./assets/sounds/son_13.wav",
+            "./assets/sounds/son_14.wav",
+            "./assets/sounds/son_15.wav",
+            "./assets/sounds/son_16.wav",
+            "./assets/sounds/son_17.wav",
+            "./assets/sounds/son_18.wav",
+            "./assets/sounds/son_19.wav",
+            "./assets/sounds/son_20.wav",
+            "./assets/sounds/son_21.wav",
+            "./assets/sounds/son_22.wav",
+            "./assets/sounds/son_23.wav",
+            "./assets/sounds/son_24.wav",
+            "./assets/sounds/son_25.wav"
+          ]
+        }
+      ]
+    ]
   }
 }
