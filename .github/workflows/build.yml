@@ -13,6 +13,11 @@ jobs:
         with:
           node-version: 22
 
+      - name: Sélectionner Xcode 26 (Swift 6.2)
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: '26.0'
+
       - name: Installer les dépendances
         run: npm install
 
