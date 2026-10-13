@@ -19,7 +19,34 @@ jobs:
           xcode-version: '26.0'
 
       - name: Installer les dépendances
-        run: npm install
+        run: |
+          npm install
+          npx expo install --fix --npm
+          npm ls expo-modules-jsi expo-modules-core
+
+      - name: Corriger les erreurs Swift de ExpoModulesJSI
+        run: |
+          python3 - <<'PYFIX'
+          from pathlib import Path
+          root = Path('node_modules/expo-modules-jsi/apple/Sources')
+          if not root.exists():
+              raise SystemExit('expo-modules-jsi introuvable')
+          changed = 0
+          for path in root.rglob('*.swift'):
+              text = path.read_text()
+              fixed = text.replace('weak let ', 'weak var ')
+              if fixed != text:
+                  path.write_text(fixed)
+                  changed += 1
+          header = root / 'ExpoModulesJSI-Cxx/include/RuntimeScheduler.h'
+          if header.exists():
+              text = header.read_text()
+              fixed = text.replace('SWIFT_RETURNS_RETAINED RuntimeScheduler(', 'RuntimeScheduler(')
+              if fixed != text:
+                  header.write_text(fixed)
+                  changed += 1
+          print(f'Fichiers adaptes: {changed}')
+          PYFIX
 
       - name: Générer le projet iOS
         run: npx expo prebuild --platform ios
