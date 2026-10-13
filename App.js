@@ -198,39 +198,44 @@ function Pair({ a, b, theme, light }) {
   );
 }
 
-// ---------------------------------------------------------------- carte d'un site
-function SiteCard({ site, ts, now, onVote, onReset, light }) {
-  const left = Math.max(0, Math.floor(((ts || 0) - now) / 1000));
-  const h = Math.floor(left / 3600);
-  const m = Math.floor((left % 3600) / 60);
-  const s = left % 60;
-  const str = `${String(Math.min(h, 99)).padStart(2, '0')}${String(m).padStart(2, '0')}${String(s).padStart(2, '0')}`;
-  const red = left === 0;
-  const theme = red ? 'red' : 'normal';
-
+// ---------------------------------------------------------------- carte Liquid Glass d'un minuteur
+function SiteCard({ site, ts, now, onVote, onReset, onEdit, light, glass }) {
+  const remaining = Math.max(0, Math.ceil(((ts || 0) - now) / 1000));
+  const total = Math.max(1, site.cooldown * 60);
+  const elapsed = Math.min(1, Math.max(0, (total - remaining) / total));
+  const h = Math.floor(remaining / 3600);
+  const m = Math.floor((remaining % 3600) / 60);
+  const sec = remaining % 60;
+  const ready = remaining === 0;
+  const tint = ready ? '#37a88e' : '#5578e9';
   return (
-    <View style={[styles.card, light && lightStyles.card]}>
-      <Text style={[styles.siteName, light && lightStyles.text]}>{site.label}</Text>
-      <View style={styles.row}>
-        <Pair a={str[0]} b={str[1]} theme={theme} light={light} />
-        <Text style={[styles.colon, light && lightStyles.text]}>:</Text>
-        <Pair a={str[2]} b={str[3]} theme={theme} light={light} />
-        <Text style={[styles.colon, light && lightStyles.text]}>:</Text>
-        <Pair a={str[4]} b={str[5]} theme={theme} light={light} />
-      </View>
-      <View style={styles.row2}>
-        <Text style={[styles.lbl, light && lightStyles.muted]}>Heures</Text>
-        <View style={{ width: 16 }} />
-        <Text style={[styles.lbl, light && lightStyles.muted]}>Minutes</Text>
-        <View style={{ width: 16 }} />
-        <Text style={[styles.lbl, light && lightStyles.muted]}>Secondes</Text>
-      </View>
-      <View style={styles.btnRow}>
-        <TouchableOpacity style={[styles.btn, red && styles.btnRed, light && !red && lightStyles.voteButton]} onPress={onVote}>
-          <Text style={styles.btnText}>Voter</Text>
+    <View style={[styles.glassTimerCard, glass ? styles.glassPanel : light ? styles.lightPanel : styles.darkPanel]}>
+      <View style={styles.timerTop}>
+        <View style={{ flex: 1 }}>
+          <Text style={[styles.timerTitle, { color: glass || light ? '#24304a' : '#f7f8ff' }]} numberOfLines={1}>{site.label}</Text>
+          <Text style={[styles.timerSubtitle, { color: glass || light ? '#66738a' : '#bac5d9' }]} numberOfLines={1}>
+            {ready ? 'Prêt à voter' : `Toutes les ${site.cooldown} min`}
+          </Text>
+        </View>
+        <TouchableOpacity accessibilityLabel={'Modifier ' + site.label} onPress={onEdit} style={styles.flatMenu}>
+          <Text style={{ color: glass || light ? '#485773' : '#fff', fontSize: 24, lineHeight: 26 }}>···</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={[styles.btn2, light && lightStyles.secondaryButton]} onPress={onReset}>
-          <Text style={[styles.btn2Text, light && lightStyles.text]}>Réinitialiser</Text>
+      </View>
+      <View style={styles.timerCenter}>
+        <View style={[styles.timerCircle, { borderColor: ready ? '#a7e9d8' : '#b9c7f9' }]}>
+          <View style={[styles.timerRingInner, { borderTopColor: tint, borderRightColor: tint, transform: [{ rotate: `${Math.round(elapsed * 270)}deg` }] }]} />
+          <Text style={[styles.timerClock, { color: glass || light ? '#26334f' : '#fff' }]}>
+            {String(h).padStart(2,'0')}:{String(m).padStart(2,'0')}:{String(sec).padStart(2,'0')}
+          </Text>
+          <Text style={[styles.timerState, { color: tint }]}>{ready ? 'Disponible' : 'En attente'}</Text>
+        </View>
+      </View>
+      <View style={styles.timerButtons}>
+        <TouchableOpacity onPress={onVote} style={styles.voteGlassButton}>
+          <Text style={styles.voteGlassText}>↗  Voter</Text>
+        </TouchableOpacity>
+        <TouchableOpacity onPress={onReset} style={styles.resetGlassButton}>
+          <Text style={styles.resetGlassText}>↻  Réinitialiser</Text>
         </TouchableOpacity>
       </View>
     </View>
@@ -252,7 +257,7 @@ export default function App() {
   const [wallpaper, setWallpaper] = useState('0');
   const systemTheme = useColorScheme();
   const glass = appearance === 'glass';
-  const light = appearance === 'light' || (appearance === 'system' && systemTheme === 'light');
+  const light = glass || appearance === 'light' || (appearance === 'system' && systemTheme === 'light');
   const [newName, setNewName] = useState('');
   const [newUrl, setNewUrl] = useState('');
   const [newMinutes, setNewMinutes] = useState('');
@@ -425,18 +430,26 @@ export default function App() {
 
   return (
     <View style={[styles.screen, light && lightStyles.screen]}>
-      {glass && <ImageBackground
+      {<ImageBackground
         key={wallpaper}
         source={wallpaper.startsWith('file:') ? { uri: wallpaper } : WALLPAPERS[Math.max(0, Math.min(5, Number(wallpaper) || 0))]}
         resizeMode="cover"
         style={StyleSheet.absoluteFillObject}
       />}
-      {glass && <View pointerEvents="none" style={[StyleSheet.absoluteFillObject, { backgroundColor: 'rgba(7,15,36,0.26)' }]} />}
+      {<View pointerEvents="none" style={[StyleSheet.absoluteFillObject, { backgroundColor: glass ? 'rgba(236,243,255,0.35)' : light ? 'rgba(255,255,255,0.70)' : 'rgba(7,15,36,0.60)' }]} />}
       <StatusBar barStyle={light ? "dark-content" : "light-content"} />
       <ScrollView key={page} contentContainerStyle={[styles.content, { paddingBottom: 112 }]}>
-        <Text style={[styles.title, light && lightStyles.text]}>
-          {settings ? 'PARAMÈTRES' : page === 'sites' ? 'MES SITES' : <><Text>Noti</Text><Text style={{ color: '#278dff' }}>Rappel</Text></>}
-        </Text>
+        <View style={styles.topHeading}>
+          <View style={{ flex: 1 }}>
+            <Text style={[styles.title, light && lightStyles.text]}>
+              {settings ? 'Réglages' : page === 'sites' ? 'Mes sites' : <><Text>Noti</Text><Text style={{ color: '#617af4' }}>Rappel</Text></>}
+            </Text>
+            {!settings && <Text style={[styles.headerCaption, { color: light ? '#65738e' : '#c4cee0' }]}>Tes rappels de vote, au bon moment</Text>}
+          </View>
+          <TouchableOpacity accessibilityLabel="Ouvrir les réglages" onPress={() => openPage(settings ? 'home' : 'settings')} style={[styles.gearButton, glass ? styles.glassPanel : light ? styles.lightPanel : styles.darkPanel]}>
+            <Text style={{ fontSize: 25, color: light ? '#465877' : '#fff' }}>{settings ? '×' : '⚙'}</Text>
+          </TouchableOpacity>
+        </View>
         {settings ? (
           <View style={[styles.settingsWrap, light && lightStyles.card, glass && glassStyles.card]}>
             <TouchableOpacity style={styles.backButton} onPress={() => openPage('home')}><Text style={[styles.backText, light && lightStyles.text]}>← Retour aux minuteurs</Text></TouchableOpacity>
@@ -455,7 +468,7 @@ export default function App() {
                     <Text style={[styles.soundText, light && lightStyles.text]}>{appearance === id ? '◉' : '○'}   {label}</Text>
                   </TouchableOpacity>
                 ))}
-                {glass && <>
+                {<>
                   <Text style={[styles.sectionTitle, { marginTop: 18 }]}>Fonds d'écran Minecraft</Text>
                   <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' }}>
                     {WALLPAPERS.map((source, index) => (
@@ -541,12 +554,21 @@ export default function App() {
             onVote={() => vote(site)}
             onReset={() => reset(site)}
             light={light}
+            glass={glass}
+            onEdit={() => editSite(site)}
           />
         ))}
+        <TouchableOpacity style={[styles.wallpaperCard, glass ? styles.glassPanel : light ? styles.lightPanel : styles.darkPanel]} onPress={() => { setSettingsTab('appearance'); openPage('settings'); }}>
+          <View style={{ flex: 1 }}>
+            <Text style={[styles.wallpaperHeading, { color: light ? '#29364f' : '#fff' }]}>✦  Fond d'écran</Text>
+            <Text style={{ color: light ? '#65738e' : '#cbd6ed', marginTop: 5 }}>Personnaliser l'ambiance</Text>
+          </View>
+          <Text style={{ fontSize: 24, color: light ? '#65738e' : '#fff' }}>›</Text>
+        </TouchableOpacity>
         </>)}
       </ScrollView>
       <View style={[styles.bottomNav, light && lightStyles.bottomNav, glass && glassStyles.nav]}>
-        {[['home','⌂','Accueil'],['sites','☷','Sites'],['settings','⚙','Paramètres']].map(([id, icon, label]) => (
+        {[['home','⌂','Accueil'],['sites','☷','Sites']].map(([id, icon, label]) => (
           <TouchableOpacity key={id} accessibilityLabel={label} onPress={() => openPage(id)}
             style={[styles.navItem, page === id && styles.navActive]}>
             <Text style={[styles.navIcon, { color: page === id ? '#ffffff' : (light ? '#333' : '#d7e0f5') }]}>{icon}</Text>
@@ -559,6 +581,30 @@ export default function App() {
 }
 
 const styles = StyleSheet.create({
+  topHeading: { width: '100%', maxWidth: 420, flexDirection: 'row', alignItems: 'center', marginBottom: 18 },
+  headerCaption: { fontSize: 13, marginTop: -9, marginBottom: 8 },
+  gearButton: { width: 48, height: 48, borderRadius: 24, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.55)' },
+  glassPanel: { backgroundColor: 'rgba(255,255,255,0.62)', borderColor: 'rgba(255,255,255,0.85)', borderWidth: 1 },
+  lightPanel: { backgroundColor: 'rgba(255,255,255,0.90)', borderColor: 'rgba(210,222,244,0.8)', borderWidth: 1 },
+  darkPanel: { backgroundColor: 'rgba(27,35,57,0.90)', borderColor: 'rgba(255,255,255,0.2)', borderWidth: 1 },
+  glassTimerCard: { width: '100%', maxWidth: 420, borderRadius: 28, padding: 18, marginBottom: 15, shadowColor: '#667eac', shadowOpacity: 0.13, shadowRadius: 15, shadowOffset: { width: 0, height: 8 }, elevation: 3 },
+  timerTop: { flexDirection: 'row', alignItems: 'center' },
+  timerTitle: { fontSize: 19, fontWeight: '800' },
+  timerSubtitle: { fontSize: 12, marginTop: 4 },
+  flatMenu: { width: 36, height: 36, alignItems: 'center', justifyContent: 'center' },
+  timerCenter: { alignItems: 'center', marginVertical: 15 },
+  timerCircle: { width: 174, height: 174, borderRadius: 87, borderWidth: 8, alignItems: 'center', justifyContent: 'center' },
+  timerRingInner: { position: 'absolute', width: 174, height: 174, borderRadius: 87, borderWidth: 7, borderLeftColor: 'transparent', borderBottomColor: 'transparent' },
+  timerClock: { fontSize: 26, fontWeight: '800', fontVariant: ['tabular-nums'] },
+  timerState: { fontSize: 12, fontWeight: '700', marginTop: 5 },
+  timerButtons: { flexDirection: 'row', gap: 10 },
+  voteGlassButton: { flex: 1, paddingVertical: 13, backgroundColor: '#6378eb', borderRadius: 17, alignItems: 'center' },
+  voteGlassText: { color: '#fff', fontWeight: '800', fontSize: 15 },
+  resetGlassButton: { flex: 1, paddingVertical: 13, backgroundColor: 'rgba(216,225,247,0.78)', borderRadius: 17, alignItems: 'center' },
+  resetGlassText: { color: '#465778', fontWeight: '800', fontSize: 13 },
+  wallpaperCard: { width: '100%', maxWidth: 420, borderRadius: 24, padding: 18, flexDirection: 'row', alignItems: 'center', marginTop: 4 },
+  wallpaperHeading: { fontSize: 17, fontWeight: '800' },
+
   screen: { flex: 1, backgroundColor: '#111111' },
   content: { paddingTop: 64, paddingBottom: 40, paddingHorizontal: 16, alignItems: 'center' },
   title: { color: '#fff', fontSize: 30, fontWeight: '800', marginBottom: 16 },
@@ -622,6 +668,8 @@ const styles = StyleSheet.create({
   navLabel: { fontSize: 11, marginTop: 2, fontWeight: '600' },
 });
 
+// Interface inspirée de la maquette Liquid Glass (transparence simulée sans module natif).
+const liquidStyles = StyleSheet.create({});
 const lightStyles = StyleSheet.create({
   screen: { backgroundColor: '#f7f8fb' },
   bottomNav: { backgroundColor: 'rgba(245,246,250,0.96)', borderColor: '#dce0e9' },
