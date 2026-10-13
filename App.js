@@ -1,12 +1,14 @@
 import React, { useEffect, useRef, useState } from 'react';
 import {
-  Alert, Animated, Easing, Image, Linking, ScrollView, StatusBar, StyleSheet,
+  Alert, Animated, Easing, Image, ImageBackground, Linking, ScrollView, StatusBar, StyleSheet,
   Text, TextInput, TouchableOpacity, View, useColorScheme,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Clipboard from 'expo-clipboard';
 import * as Notifications from 'expo-notifications';
 import { createAudioPlayer } from 'expo-audio';
+import * as ImagePicker from 'expo-image-picker';
+import * as FileSystem from 'expo-file-system/legacy';
 
 // ---------------------------------------------------------------- réglages
 const DEFAULT_PSEUDO = 'Aetherros';
@@ -71,6 +73,17 @@ const SOUND_FILES = [
 ];
 const SOUND_IDS = SOUND_NAMES.map((name, i) => ({ name, id: ["01_ding_classique.wav", "02_ding_grave.wav", "03_ding_dong.wav", "04_dong_ding.wav", "05_carillon_trois.wav", "06_carillon_descendant.wav", "07_arpege_majeur.wav", "08_arpege_mineur.wav", "09_pop_bulle.wav", "10_pop_double.wav", "11_blip_retro.wav", "12_blip_double.wav", "13_pickup_coin.wav", "14_level_up.wav", "15_power_up.wav", "16_power_down.wav", "17_laser.wav", "18_sonar.wav", "19_sonar_double.wav", "20_goutte.wav", "21_xylophone.wav", "22_harpe.wav", "23_pizzicato.wav", "24_clochette.wav", "25_cloche_eglise.wav", "26_gong_doux.wav", "27_triangle.wav", "28_marimba.wav", "29_celeste.wav", "30_fanfare_courte.wav", "31_alerte_douce.wav", "32_alerte_urgente.wav", "33_alarme.wav", "34_sirene.wav", "35_bip_simple.wav", "36_bip_triple.wav", "37_tic_toc.wav", "38_clic.wav", "39_snap.wav", "40_whoosh.wav", "41_tada.wav", "42_succes.wav", "43_accord_mineur.wav", "44_quinte.wav", "45_oiseau.wav", "46_grillon.wav", "47_zen.wav", "48_wah.wav", "49_coucou.wav", "50_minecraft_xp.wav"][i], file: SOUND_FILES[i] }));
 const DEFAULT_SOUND = SOUND_IDS[0].id;
+
+const WALLPAPERS = [
+  require('./assets/backgrounds/voxel_01.jpg'),
+  require('./assets/backgrounds/voxel_02.jpg'),
+  require('./assets/backgrounds/voxel_03.jpg'),
+  require('./assets/backgrounds/voxel_04.jpg'),
+  require('./assets/backgrounds/voxel_05.jpg'),
+  require('./assets/backgrounds/voxel_06.jpg'),
+];
+const WALLPAPER_NAMES = ['Prairie', 'Nuit', 'Crépuscule', 'Montagnes', 'Forêt', 'Portail'];
+
 const SETTINGS_KEY = 'snkmc_settings_v1';
 
 
@@ -232,9 +245,13 @@ export default function App() {
   const [sites, setSites] = useState(DEFAULT_SITES);
   const [sound, setSound] = useState(DEFAULT_SOUND);
   const [settings, setSettings] = useState(false);
+  const [page, setPage] = useState('home');
+  const [editingKey, setEditingKey] = useState(null);
   const [settingsTab, setSettingsTab] = useState('appearance');
   const [appearance, setAppearance] = useState('system');
+  const [wallpaper, setWallpaper] = useState('0');
   const systemTheme = useColorScheme();
+  const glass = appearance === 'glass';
   const light = appearance === 'light' || (appearance === 'system' && systemTheme === 'light');
   const [newName, setNewName] = useState('');
   const [newUrl, setNewUrl] = useState('');
@@ -242,12 +259,33 @@ export default function App() {
   const previewRef = useRef(null);
 
   const persistSettings = async (list, selected) => {
-    try { await AsyncStorage.setItem(SETTINGS_KEY, JSON.stringify({ sites: list, sound: selected, appearance })); } catch (e) {}
+    try { await AsyncStorage.setItem(SETTINGS_KEY, JSON.stringify({ sites: list, sound: selected, appearance, wallpaper })); } catch (e) {}
   };
 
   const chooseAppearance = async (value) => {
     setAppearance(value);
-    try { await AsyncStorage.setItem(SETTINGS_KEY, JSON.stringify({ sites, sound, appearance: value })); } catch (e) {}
+    try { await AsyncStorage.setItem(SETTINGS_KEY, JSON.stringify({ sites, sound, appearance: value, wallpaper })); } catch (e) {}
+  };
+
+  const chooseWallpaper = async (value) => {
+    setWallpaper(value);
+    try { await AsyncStorage.setItem(SETTINGS_KEY, JSON.stringify({ sites, sound, appearance, wallpaper: value })); } catch (e) {}
+  };
+
+  const chooseCustomWallpaper = async () => {
+    try {
+      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!permission.granted) { Alert.alert('Autorisation nécessaire', 'Autorise l’accès aux photos pour choisir ton fond.'); return; }
+      const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], allowsEditing: true, aspect: [9, 16], quality: 0.85 });
+      if (result.canceled || !result.assets?.[0]?.uri) return;
+      const folder = FileSystem.documentDirectory + 'snkvote/';
+      await FileSystem.makeDirectoryAsync(folder, { intermediates: true });
+      const target = folder + 'fond-personnalise.jpg';
+      // Utiliser un nom distinct à chaque choix évite le cache des images iOS.
+      const uniqueTarget = folder + 'fond-' + Date.now() + '.jpg';
+      await FileSystem.copyAsync({ from: result.assets[0].uri, to: uniqueTarget });
+      await chooseWallpaper(uniqueTarget);
+    } catch (e) { Alert.alert('Image indisponible', 'Impossible de charger cette image.'); }
   };
 
   const chooseSound = async (item) => {
@@ -268,6 +306,20 @@ export default function App() {
     } catch (e) { Alert.alert('Préécoute indisponible', 'Impossible de lire ce son.'); }
   };
 
+  const editSite = (site) => {
+    setEditingKey(site.key);
+    setNewName(site.label);
+    setNewUrl(site.url);
+    setNewMinutes(String(site.cooldown));
+    setSettingsTab('timers');
+    setPage('settings');
+  };
+
+  const cancelEdit = () => {
+    setEditingKey(null);
+    setNewName(''); setNewUrl(''); setNewMinutes('');
+  };
+
   const addSite = async () => {
     const label = newName.trim();
     const url = newUrl.trim();
@@ -276,12 +328,14 @@ export default function App() {
       Alert.alert('Informations incorrectes', 'Indique un nom, une URL https:// valide et une durée entre 1 et 10080 minutes.');
       return;
     }
-    const key = `custom-${Date.now()}`;
-    const list = [...sites, { key, label, url, cooldown }];
+    const key = editingKey || `custom-${Date.now()}`;
+    const updated = { key, label, url, cooldown };
+    const list = editingKey ? sites.map(site => site.key === editingKey ? updated : site) : [...sites, updated];
     setSites(list);
     await persistSettings(list, sound);
-    setNewName(''); setNewUrl(''); setNewMinutes('');
-    Alert.alert('Site ajouté', `${label} apparaît maintenant sur l’accueil.`);
+    if (editingKey && next[key] > Date.now()) await scheduleVote(updated, next[key], sound);
+    cancelEdit();
+    Alert.alert(editingKey ? 'Site modifié' : 'Site ajouté', `${label} est enregistré.`);
   };
 
   const removeSite = (site) => {
@@ -314,11 +368,13 @@ export default function App() {
       } catch (e) {}
       let cfg = {};
       try { const raw = await AsyncStorage.getItem(SETTINGS_KEY); if (raw) cfg = JSON.parse(raw); } catch (e) {}
+      // Respecte exactement la liste sauvegardée, même si les sites initiaux ont été supprimés.
       const loadedSites = Array.isArray(cfg.sites) ? cfg.sites : DEFAULT_SITES;
       const selectedSound = SOUND_IDS.some(x => x.id === cfg.sound) ? cfg.sound : DEFAULT_SOUND;
       setSites(loadedSites);
       setSound(selectedSound);
-      setAppearance(['light', 'dark', 'system'].includes(cfg.appearance) ? cfg.appearance : 'dark');
+      setAppearance(['light', 'dark', 'system', 'glass'].includes(cfg.appearance) ? cfg.appearance : 'dark');
+      setWallpaper(typeof cfg.wallpaper === 'string' ? cfg.wallpaper : '0');
       const p = st.pseudo || DEFAULT_PSEUDO;
       const n = st.next || {};
       setPseudo(p);
@@ -362,14 +418,28 @@ export default function App() {
     }, 'plain-text', pseudo);
   };
 
+  const openPage = (target) => {
+    setPage(target);
+    setSettings(target === 'settings');
+  };
+
   return (
     <View style={[styles.screen, light && lightStyles.screen]}>
+      {glass && <ImageBackground
+        key={wallpaper}
+        source={wallpaper.startsWith('file:') ? { uri: wallpaper } : WALLPAPERS[Math.max(0, Math.min(5, Number(wallpaper) || 0))]}
+        resizeMode="cover"
+        style={StyleSheet.absoluteFillObject}
+      />}
+      {glass && <View pointerEvents="none" style={[StyleSheet.absoluteFillObject, { backgroundColor: 'rgba(7,15,36,0.26)' }]} />}
       <StatusBar barStyle={light ? "dark-content" : "light-content"} />
-      <ScrollView contentContainerStyle={styles.content}>
-        <Text style={[styles.title, light && lightStyles.text]}>{settings ? 'PARAMÈTRES' : 'VOTE SNKMC'}</Text>
+      <ScrollView key={page} contentContainerStyle={[styles.content, { paddingBottom: 112 }]}>
+        <Text style={[styles.title, light && lightStyles.text]}>
+          {settings ? 'PARAMÈTRES' : page === 'sites' ? 'MES SITES' : <><Text>Noti</Text><Text style={{ color: '#278dff' }}>Rappel</Text></>}
+        </Text>
         {settings ? (
-          <View style={[styles.settingsWrap, light && lightStyles.card]}>
-            <TouchableOpacity style={styles.backButton} onPress={() => setSettings(false)}><Text style={[styles.backText, light && lightStyles.text]}>← Retour aux minuteurs</Text></TouchableOpacity>
+          <View style={[styles.settingsWrap, light && lightStyles.card, glass && glassStyles.card]}>
+            <TouchableOpacity style={styles.backButton} onPress={() => openPage('home')}><Text style={[styles.backText, light && lightStyles.text]}>← Retour aux minuteurs</Text></TouchableOpacity>
             <View style={styles.tabBar}>
               {[['appearance','Apparence'], ['sounds','Sons'], ['timers','Minuteurs']].map(([id,label]) => (
                 <TouchableOpacity key={id} style={[styles.tab, settingsTab === id && styles.activeTab, light && lightStyles.tab, light && settingsTab === id && lightStyles.activeTab]} onPress={() => setSettingsTab(id)}>
@@ -380,11 +450,26 @@ export default function App() {
             {settingsTab === 'appearance' ? (
               <>
                 <Text style={[styles.sectionTitle, light && lightStyles.text]}>Thème de l'application</Text>
-                {[['light','☀  Clair'], ['dark','☾  Sombre'], ['system','▣  Identique au système']].map(([id,label]) => (
+                {[['light','☀  Clair'], ['dark','☾  Sombre'], ['system','▣  Identique au système'], ['glass','✦  Liquid Glass']].map(([id,label]) => (
                   <TouchableOpacity key={id} style={[styles.managedRow, light && lightStyles.divider]} onPress={() => chooseAppearance(id)}>
                     <Text style={[styles.soundText, light && lightStyles.text]}>{appearance === id ? '◉' : '○'}   {label}</Text>
                   </TouchableOpacity>
                 ))}
+                {glass && <>
+                  <Text style={[styles.sectionTitle, { marginTop: 18 }]}>Fonds d'écran Minecraft</Text>
+                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' }}>
+                    {WALLPAPERS.map((source, index) => (
+                      <TouchableOpacity key={index} onPress={() => chooseWallpaper(String(index))} style={{ width: '31%', marginBottom: 12 }}>
+                        <Image source={source} style={{ width: '100%', height: 130, borderRadius: 12, borderWidth: wallpaper === String(index) ? 3 : 1, borderColor: wallpaper === String(index) ? '#55b8ff' : '#ffffff77' }} />
+                        <Text style={{ color: '#fff', textAlign: 'center', marginTop: 5 }}>{WALLPAPER_NAMES[index]}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                  <TouchableOpacity onPress={chooseCustomWallpaper} style={[styles.addButton, { backgroundColor: '#2161a8', marginTop: 6 }]}>
+                    <Text style={styles.addText}>＋ Choisir une photo sur mon iPhone</Text>
+                  </TouchableOpacity>
+                  {wallpaper.startsWith('file:') && <Text style={[styles.hint, { color: '#fff', marginTop: 8 }]}>✓ Fond personnalisé sélectionné</Text>}
+                </>}
               </>
             ) : settingsTab === 'sounds' ? (
               <>
@@ -401,25 +486,42 @@ export default function App() {
               </>
             ) : (
               <>
-                <Text style={[styles.sectionTitle, light && lightStyles.text]}>Ajouter un minuteur</Text>
+                <Text style={[styles.sectionTitle, light && lightStyles.text]}>{editingKey ? 'Modifier le minuteur' : 'Ajouter un minuteur'}</Text>
                 <TextInput style={[styles.field, light && lightStyles.field]} placeholder="Nom du site" placeholderTextColor={light ? '#777' : '#aaa'} value={newName} onChangeText={setNewName} />
                 <TextInput style={[styles.field, light && lightStyles.field]} placeholder="https://exemple.fr/vote" placeholderTextColor={light ? '#777' : '#aaa'} autoCapitalize="none" keyboardType="url" value={newUrl} onChangeText={setNewUrl} />
                 <TextInput style={[styles.field, light && lightStyles.field]} placeholder="Durée en minutes (ex. 90)" placeholderTextColor={light ? '#777' : '#aaa'} keyboardType="numeric" value={newMinutes} onChangeText={setNewMinutes} />
-                <TouchableOpacity style={styles.addButton} onPress={addSite}><Text style={styles.addText}>+ Ajouter le site</Text></TouchableOpacity>
+                <TouchableOpacity style={styles.addButton} onPress={addSite}><Text style={styles.addText}>{editingKey ? '✓ Enregistrer les modifications' : '+ Ajouter le site'}</Text></TouchableOpacity>
+                {editingKey && <TouchableOpacity onPress={cancelEdit} style={{ padding: 12, alignItems: 'center' }}><Text style={[styles.soundText, light && lightStyles.text]}>Annuler la modification</Text></TouchableOpacity>}
                 <Text style={[styles.sectionTitle, light && lightStyles.text]}>Mes sites</Text>
                 {sites.map(site => (
                   <View key={site.key} style={[styles.managedRow, light && lightStyles.divider]}>
                     <View style={{ flex: 1 }}><Text style={[styles.soundText, light && lightStyles.text]}>{site.label}</Text><Text style={[styles.hint, light && lightStyles.muted]}>{site.cooldown} minutes</Text></View>
-                    {site.key.startsWith('custom-') && <TouchableOpacity onPress={() => removeSite(site)}><Text style={styles.deleteText}>Supprimer</Text></TouchableOpacity>}
+                    <TouchableOpacity onPress={() => editSite(site)}><Text style={[styles.editText, light && lightStyles.text]}>Modifier</Text></TouchableOpacity>
+                    <TouchableOpacity onPress={() => removeSite(site)}><Text style={styles.deleteText}>Supprimer</Text></TouchableOpacity>
                   </View>
                 ))}
               </>
             )}
           </View>
+        ) : page === 'sites' ? (
+          <View style={[styles.settingsWrap, light && lightStyles.card, glass && glassStyles.card]}>
+            <Text style={[styles.sectionTitle, light && lightStyles.text]}>Sites de vote</Text>
+            {sites.map(site => (
+              <View key={site.key} style={[styles.managedRow, light && lightStyles.divider]}>
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.soundText, light && lightStyles.text]}>{site.label}</Text>
+                  <Text style={[styles.hint, light && lightStyles.muted]}>{site.cooldown} minutes</Text>
+                </View>
+                <TouchableOpacity onPress={() => editSite(site)}><Text style={[styles.editText, light && lightStyles.text]}>Modifier</Text></TouchableOpacity>
+                <TouchableOpacity onPress={() => removeSite(site)}><Text style={styles.deleteText}>Supprimer</Text></TouchableOpacity>
+              </View>
+            ))}
+            <TouchableOpacity style={styles.addButton} onPress={() => { cancelEdit(); setSettingsTab('timers'); openPage('settings'); }}><Text style={styles.addText}>+ Ajouter un site</Text></TouchableOpacity>
+          </View>
         ) : (<>
 
 
-        <View style={[styles.player, light && lightStyles.card]}>
+        <View style={[styles.player, light && lightStyles.card, glass && glassStyles.card]}>
           <Image source={require('./assets/head.png')} style={styles.head} />
           <View style={{ flex: 1, marginLeft: 14 }}>
             <Text style={[styles.joueur, light && lightStyles.muted]}>Joueur</Text>
@@ -441,13 +543,17 @@ export default function App() {
             light={light}
           />
         ))}
-        <View style={styles.settingsButtonRow}>
-          <TouchableOpacity accessibilityLabel="Paramètres" style={[styles.settingsButton, light && lightStyles.settingsButton]} onPress={() => setSettings(true)}>
-            <Text style={[styles.settingsIcon, light && lightStyles.text]}>⚙</Text>
-          </TouchableOpacity>
-        </View>
         </>)}
       </ScrollView>
+      <View style={[styles.bottomNav, light && lightStyles.bottomNav, glass && glassStyles.nav]}>
+        {[['home','⌂','Accueil'],['sites','☷','Sites'],['settings','⚙','Paramètres']].map(([id, icon, label]) => (
+          <TouchableOpacity key={id} accessibilityLabel={label} onPress={() => openPage(id)}
+            style={[styles.navItem, page === id && styles.navActive]}>
+            <Text style={[styles.navIcon, { color: page === id ? '#ffffff' : (light ? '#333' : '#d7e0f5') }]}>{icon}</Text>
+            <Text style={[styles.navLabel, { color: page === id ? '#ffffff' : (light ? '#333' : '#d7e0f5') }]}>{label}</Text>
+          </TouchableOpacity>
+        ))}
+      </View>
     </View>
   );
 }
@@ -508,10 +614,17 @@ const styles = StyleSheet.create({
   addText: { color: '#fff', fontWeight: '800' },
   managedRow: { flexDirection: 'row', alignItems: 'center', borderBottomWidth: 1, borderBottomColor: '#333', paddingVertical: 12 },
   deleteText: { color: '#ff7777', padding: 8 },
+  editText: { color: '#83bfff', padding: 8, fontWeight: '700' },
+  bottomNav: { position: 'absolute', bottom: 18, left: 20, right: 20, flexDirection: 'row', padding: 6, backgroundColor: 'rgba(30,35,46,0.94)', borderRadius: 30, borderWidth: 1, borderColor: 'rgba(255,255,255,0.22)' },
+  navItem: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 7, borderRadius: 24 },
+  navActive: { backgroundColor: '#237eff' },
+  navIcon: { fontSize: 22, fontWeight: '700' },
+  navLabel: { fontSize: 11, marginTop: 2, fontWeight: '600' },
 });
 
 const lightStyles = StyleSheet.create({
   screen: { backgroundColor: '#f7f8fb' },
+  bottomNav: { backgroundColor: 'rgba(245,246,250,0.96)', borderColor: '#dce0e9' },
   card: { backgroundColor: '#ffffff', borderWidth: 1, borderColor: '#e8e9ef' },
   text: { color: '#16171b' },
   muted: { color: '#777b86' },
@@ -523,3 +636,5 @@ const lightStyles = StyleSheet.create({
   tab: { backgroundColor: '#f2f3f7' },
   activeTab: { backgroundColor: '#dce0e9' },
 });
+
+const glassStyles = StyleSheet.create({ nav: { backgroundColor: 'rgba(32,49,78,0.50)', borderColor: 'rgba(255,255,255,0.48)' }, card: { backgroundColor: 'rgba(24,35,62,0.60)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.38)' } });

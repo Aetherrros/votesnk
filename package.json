@@ -10,7 +10,9 @@
     "expo-status-bar": "~57.0.1",
     "react": "19.2.3",
     "react-native": "0.86.3",
-    "expo-audio": "*"
+    "expo-audio": "*",
+    "expo-image-picker": "*",
+    "expo-file-system": "*"
   },
   "scripts": {
     "start": "expo start",
