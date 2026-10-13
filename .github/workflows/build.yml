@@ -45,27 +45,22 @@ jobs:
               if fixed != text:
                   header.write_text(fixed)
                   changed += 1
-          # Swift 6: les classes avec une référence weak mutable doivent
-          # déclarer explicitement leur conformité Sendable comme non vérifiée.
-          import re
-          targets = {
-              'JavaScriptPropNameID.swift': 'JavaScriptPropNameID',
-              'JavaScriptError.swift': 'JavaScriptError',
-              'JavaScriptValue.swift': 'JavaScriptValue',
-          }
-          for filename, classname in targets.items():
+          # Swift 6: autoriser explicitement l'accès non isolé aux références
+          # faibles des trois classes signalées dans le journal de compilation.
+          targets = ('JavaScriptPropNameID.swift', 'JavaScriptError.swift', 'JavaScriptValue.swift')
+          for filename in targets:
               matches = list(root.rglob(filename))
               if len(matches) != 1:
                   raise SystemExit(f'Fichier attendu introuvable ou ambigu: {filename}')
               path = matches[0]
               original = path.read_text()
-              # Ne modifie que la déclaration de la classe ciblée.
-              pattern = rf'(\bclass\s+{classname}\b[^{{\n]*?:[^{{\n]*?)\bSendable\b'
-              updated, count = re.subn(pattern, lambda m: m.group(1) + '@unchecked Sendable', original, count=1)
-              if count != 1:
-                  raise SystemExit(f'Conformité Sendable non trouvée pour {classname}: vérifier le code Expo installé')
-              path.write_text(updated)
-              changed += 1
+              updated = original.replace('private weak var runtime:', 'nonisolated(unsafe) private weak var runtime:')
+              updated = updated.replace('internal weak var runtime:', 'nonisolated(unsafe) internal weak var runtime:')
+              if updated == original and 'nonisolated(unsafe)' not in original:
+                  raise SystemExit(f'Propriété runtime introuvable dans {filename}')
+              if updated != original:
+                  path.write_text(updated)
+                  changed += 1
           print(f'Fichiers adaptes: {changed}')
           PYFIX
 
