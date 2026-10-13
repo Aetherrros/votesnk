@@ -12,14 +12,14 @@
     "react-native": "0.86.3",
     "expo-audio": "*",
     "expo-image-picker": "*",
-    "expo-file-system": "*"
+    "expo-file-system": "*",
+    "expo-blur": "*"
   },
   "scripts": {
     "start": "expo start",
     "android": "expo start --android",
     "ios": "expo start --ios",
-    "web": "expo start --web",
-    "fix:dependencies": "expo install --fix --npm"
+    "web": "expo start --web"
   },
   "private": true
 }

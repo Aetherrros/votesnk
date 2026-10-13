@@ -9,6 +9,7 @@ import * as Notifications from 'expo-notifications';
 import { createAudioPlayer } from 'expo-audio';
 import * as ImagePicker from 'expo-image-picker';
 import * as FileSystem from 'expo-file-system/legacy';
+import { BlurView } from 'expo-blur';
 
 // ---------------------------------------------------------------- réglages
 const DEFAULT_PSEUDO = 'Aetherros';
@@ -198,6 +199,12 @@ function Pair({ a, b, theme, light }) {
   );
 }
 
+// Flou natif iOS : une vraie couche floutée sous le contenu, sans flouter les textes.
+function GlassLayer({ radius = 26, intensity = 48 }) {
+  return <BlurView pointerEvents="none" tint="dark" intensity={intensity}
+    style={[StyleSheet.absoluteFillObject, { borderRadius: radius, overflow: 'hidden' }]} />;
+}
+
 // ---------------------------------------------------------------- carte Liquid Glass d'un minuteur
 function SiteCard({ site, ts, now, onVote, onReset, onEdit, light, glass }) {
   const remaining = Math.max(0, Math.ceil(((ts || 0) - now) / 1000));
@@ -210,24 +217,25 @@ function SiteCard({ site, ts, now, onVote, onReset, onEdit, light, glass }) {
   const tint = ready ? '#37a88e' : '#5578e9';
   return (
     <View style={[styles.glassTimerCard, glass ? styles.glassPanel : light ? styles.lightPanel : styles.darkPanel]}>
+      {glass && <GlassLayer radius={28} />}
       <View style={styles.timerTop}>
         <View style={{ flex: 1 }}>
-          <Text style={[styles.timerTitle, { color: glass || light ? '#24304a' : '#f7f8ff' }]} numberOfLines={1}>{site.label}</Text>
-          <Text style={[styles.timerSubtitle, { color: glass || light ? '#66738a' : '#bac5d9' }]} numberOfLines={1}>
+          <Text style={[styles.timerTitle, { color: glass ? '#ffffff' : light ? '#24304a' : '#f7f8ff' }]} numberOfLines={1}>{site.label}</Text>
+          <Text style={[styles.timerSubtitle, { color: glass ? '#d8e5ff' : light ? '#66738a' : '#bac5d9' }]} numberOfLines={1}>
             {ready ? 'Prêt à voter' : `Toutes les ${site.cooldown} min`}
           </Text>
         </View>
         <TouchableOpacity accessibilityLabel={'Modifier ' + site.label} onPress={onEdit} style={styles.flatMenu}>
-          <Text style={{ color: glass || light ? '#485773' : '#fff', fontSize: 24, lineHeight: 26 }}>···</Text>
+          <Text style={{ color: glass ? '#fff' : light ? '#485773' : '#fff', fontSize: 24, lineHeight: 26 }}>···</Text>
         </TouchableOpacity>
       </View>
       <View style={styles.timerCenter}>
         <View style={[styles.timerCircle, { borderColor: ready ? '#a7e9d8' : '#b9c7f9' }]}>
           <View style={[styles.timerRingInner, { borderTopColor: tint, borderRightColor: tint, transform: [{ rotate: `${Math.round(elapsed * 270)}deg` }] }]} />
-          <Text style={[styles.timerClock, { color: glass || light ? '#26334f' : '#fff' }]}>
+          <Text style={[styles.timerClock, { color: glass ? '#fff' : light ? '#26334f' : '#fff' }]}>
             {String(h).padStart(2,'0')}:{String(m).padStart(2,'0')}:{String(sec).padStart(2,'0')}
           </Text>
-          <Text style={[styles.timerState, { color: tint }]}>{ready ? 'Disponible' : 'En attente'}</Text>
+          <Text style={[styles.timerState, { color: glass ? '#c5d9ff' : tint }]}>{ready ? 'Disponible' : 'En attente'}</Text>
         </View>
       </View>
       <View style={styles.timerButtons}>
@@ -439,37 +447,39 @@ export default function App() {
       imageStyle={{ width: '100%', height: '100%' }}
     >
       <View pointerEvents="none" style={[StyleSheet.absoluteFillObject, {
-        backgroundColor: glass ? 'rgba(235,242,255,0.12)' : light ? 'rgba(255,255,255,0.16)' : 'rgba(7,15,36,0.24)',
+        backgroundColor: glass ? 'rgba(4,10,31,0.18)' : light ? 'rgba(255,255,255,0.16)' : 'rgba(7,15,36,0.24)',
       }]} />
-      <StatusBar barStyle={light ? "dark-content" : "light-content"} />
+      <StatusBar barStyle={glass ? 'light-content' : light ? 'dark-content' : 'light-content'} />
       <ScrollView key={page} contentContainerStyle={[styles.content, { paddingBottom: 112 }]}>
         <View style={styles.topHeading}>
           <View style={{ flex: 1 }}>
             <Text style={[styles.title, light && lightStyles.text]}>
               {settings ? 'Réglages' : page === 'sites' ? 'Mes sites' : <><Text>Noti</Text><Text style={{ color: '#617af4' }}>Rappel</Text></>}
             </Text>
-            {!settings && <Text style={[styles.headerCaption, { color: light ? '#65738e' : '#c4cee0' }]}>Tes rappels de vote, au bon moment</Text>}
+            {!settings && <Text style={[styles.headerCaption, { color: glass ? '#ffffff' : light ? '#65738e' : '#c4cee0' }]}>Tes rappels de vote, au bon moment</Text>}
           </View>
           <TouchableOpacity accessibilityLabel="Ouvrir les réglages" onPress={() => openPage(settings ? 'home' : 'settings')} style={[styles.gearButton, glass ? styles.glassPanel : light ? styles.lightPanel : styles.darkPanel]}>
-            <Text style={{ fontSize: 25, color: light ? '#465877' : '#fff' }}>{settings ? '×' : '⚙'}</Text>
+            {glass && <GlassLayer radius={24} />}
+            <Text style={{ fontSize: 25, color: glass ? '#fff' : light ? '#465877' : '#fff' }}>{settings ? '×' : '⚙'}</Text>
           </TouchableOpacity>
         </View>
         {settings ? (
           <View style={[styles.settingsWrap, light && lightStyles.card, glass && glassStyles.card]}>
-            <TouchableOpacity style={styles.backButton} onPress={() => openPage('home')}><Text style={[styles.backText, light && lightStyles.text]}>← Retour aux minuteurs</Text></TouchableOpacity>
+            {glass && <GlassLayer radius={18} intensity={65} />}
+            <TouchableOpacity style={styles.backButton} onPress={() => openPage('home')}><Text style={[styles.backText, light && lightStyles.text, glass && styles.glassText]}>← Retour aux minuteurs</Text></TouchableOpacity>
             <View style={styles.tabBar}>
               {[['appearance','Apparence'], ['sounds','Sons'], ['timers','Minuteurs']].map(([id,label]) => (
-                <TouchableOpacity key={id} style={[styles.tab, settingsTab === id && styles.activeTab, light && lightStyles.tab, light && settingsTab === id && lightStyles.activeTab]} onPress={() => setSettingsTab(id)}>
-                  <Text style={[styles.tabText, settingsTab === id && styles.activeTabText, light && lightStyles.text]}>{label}</Text>
+                <TouchableOpacity key={id} style={[styles.tab, settingsTab === id && styles.activeTab, light && lightStyles.tab, light && settingsTab === id && lightStyles.activeTab, glass && styles.glassTab]} onPress={() => setSettingsTab(id)}>
+                  <Text style={[styles.tabText, settingsTab === id && styles.activeTabText, light && lightStyles.text, glass && styles.glassTabText]}>{label}</Text>
                 </TouchableOpacity>
               ))}
             </View>
             {settingsTab === 'appearance' ? (
               <>
-                <Text style={[styles.sectionTitle, light && lightStyles.text]}>Thème de l'application</Text>
+                <Text style={[styles.sectionTitle, light && lightStyles.text, glass && styles.glassText]}>Thème de l'application</Text>
                 {[['light','☀  Clair'], ['dark','☾  Sombre'], ['system','▣  Identique au système'], ['glass','✦  Liquid Glass']].map(([id,label]) => (
                   <TouchableOpacity key={id} style={[styles.managedRow, light && lightStyles.divider]} onPress={() => chooseAppearance(id)}>
-                    <Text style={[styles.soundText, light && lightStyles.text]}>{appearance === id ? '◉' : '○'}   {label}</Text>
+                    <Text style={[styles.soundText, light && lightStyles.text, glass && styles.glassText]}>{appearance === id ? '◉' : '○'}   {label}</Text>
                   </TouchableOpacity>
                 ))}
                 {<>
@@ -490,29 +500,29 @@ export default function App() {
               </>
             ) : settingsTab === 'sounds' ? (
               <>
-                <Text style={[styles.sectionTitle, light && lightStyles.text]}>Son des notifications</Text>
-                <Text style={[styles.hint, light && lightStyles.muted]}>Choisis un son et touche ▶ pour l'écouter. Le choix sera utilisé pour les rappels reprogrammés.</Text>
+                <Text style={[styles.sectionTitle, light && lightStyles.text, glass && styles.glassText]}>Son des notifications</Text>
+                <Text style={[styles.hint, light && lightStyles.muted, glass && styles.glassMuted]}>Choisis un son et touche ▶ pour l'écouter. Le choix sera utilisé pour les rappels reprogrammés.</Text>
                 {SOUND_IDS.map(item => (
                   <View key={item.id} style={[styles.soundRow, light && lightStyles.divider]}>
                     <TouchableOpacity style={styles.soundSelect} onPress={() => chooseSound(item)}>
-                      <Text style={[styles.soundText, light && lightStyles.text]}>{sound === item.id ? '◉' : '○'}  {item.name}</Text>
+                      <Text style={[styles.soundText, light && lightStyles.text, glass && styles.glassText]}>{sound === item.id ? '◉' : '○'}  {item.name}</Text>
                     </TouchableOpacity>
-                    <TouchableOpacity style={[styles.previewButton, light && lightStyles.secondaryButton]} onPress={() => previewSound(item)}><Text style={[styles.soundText, light && lightStyles.text]}>▶</Text></TouchableOpacity>
+                    <TouchableOpacity style={[styles.previewButton, light && lightStyles.secondaryButton]} onPress={() => previewSound(item)}><Text style={[styles.soundText, light && lightStyles.text, glass && styles.glassText]}>▶</Text></TouchableOpacity>
                   </View>
                 ))}
               </>
             ) : (
               <>
-                <Text style={[styles.sectionTitle, light && lightStyles.text]}>{editingKey ? 'Modifier le minuteur' : 'Ajouter un minuteur'}</Text>
-                <TextInput style={[styles.field, light && lightStyles.field]} placeholder="Nom du site" placeholderTextColor={light ? '#777' : '#aaa'} value={newName} onChangeText={setNewName} />
-                <TextInput style={[styles.field, light && lightStyles.field]} placeholder="https://exemple.fr/vote" placeholderTextColor={light ? '#777' : '#aaa'} autoCapitalize="none" keyboardType="url" value={newUrl} onChangeText={setNewUrl} />
-                <TextInput style={[styles.field, light && lightStyles.field]} placeholder="Durée en minutes (ex. 90)" placeholderTextColor={light ? '#777' : '#aaa'} keyboardType="numeric" value={newMinutes} onChangeText={setNewMinutes} />
+                <Text style={[styles.sectionTitle, light && lightStyles.text, glass && styles.glassText]}>{editingKey ? 'Modifier le minuteur' : 'Ajouter un minuteur'}</Text>
+                <TextInput style={[styles.field, light && lightStyles.field, glass && styles.glassField]} placeholder="Nom du site" placeholderTextColor={light ? '#777' : '#aaa'} value={newName} onChangeText={setNewName} />
+                <TextInput style={[styles.field, light && lightStyles.field, glass && styles.glassField]} placeholder="https://exemple.fr/vote" placeholderTextColor={light ? '#777' : '#aaa'} autoCapitalize="none" keyboardType="url" value={newUrl} onChangeText={setNewUrl} />
+                <TextInput style={[styles.field, light && lightStyles.field, glass && styles.glassField]} placeholder="Durée en minutes (ex. 90)" placeholderTextColor={light ? '#777' : '#aaa'} keyboardType="numeric" value={newMinutes} onChangeText={setNewMinutes} />
                 <TouchableOpacity style={styles.addButton} onPress={addSite}><Text style={styles.addText}>{editingKey ? '✓ Enregistrer les modifications' : '+ Ajouter le site'}</Text></TouchableOpacity>
-                {editingKey && <TouchableOpacity onPress={cancelEdit} style={{ padding: 12, alignItems: 'center' }}><Text style={[styles.soundText, light && lightStyles.text]}>Annuler la modification</Text></TouchableOpacity>}
-                <Text style={[styles.sectionTitle, light && lightStyles.text]}>Mes sites</Text>
+                {editingKey && <TouchableOpacity onPress={cancelEdit} style={{ padding: 12, alignItems: 'center' }}><Text style={[styles.soundText, light && lightStyles.text, glass && styles.glassText]}>Annuler la modification</Text></TouchableOpacity>}
+                <Text style={[styles.sectionTitle, light && lightStyles.text, glass && styles.glassText]}>Mes sites</Text>
                 {sites.map(site => (
                   <View key={site.key} style={[styles.managedRow, light && lightStyles.divider]}>
-                    <View style={{ flex: 1 }}><Text style={[styles.soundText, light && lightStyles.text]}>{site.label}</Text><Text style={[styles.hint, light && lightStyles.muted]}>{site.cooldown} minutes</Text></View>
+                    <View style={{ flex: 1 }}><Text style={[styles.soundText, light && lightStyles.text, glass && styles.glassText]}>{site.label}</Text><Text style={[styles.hint, light && lightStyles.muted, glass && styles.glassMuted]}>{site.cooldown} minutes</Text></View>
                     <TouchableOpacity onPress={() => editSite(site)}><Text style={[styles.editText, light && lightStyles.text]}>Modifier</Text></TouchableOpacity>
                     <TouchableOpacity onPress={() => removeSite(site)}><Text style={styles.deleteText}>Supprimer</Text></TouchableOpacity>
                   </View>
@@ -522,12 +532,12 @@ export default function App() {
           </View>
         ) : page === 'sites' ? (
           <View style={[styles.settingsWrap, light && lightStyles.card, glass && glassStyles.card]}>
-            <Text style={[styles.sectionTitle, light && lightStyles.text]}>Sites de vote</Text>
+            <Text style={[styles.sectionTitle, light && lightStyles.text, glass && styles.glassText]}>Sites de vote</Text>
             {sites.map(site => (
               <View key={site.key} style={[styles.managedRow, light && lightStyles.divider]}>
                 <View style={{ flex: 1 }}>
-                  <Text style={[styles.soundText, light && lightStyles.text]}>{site.label}</Text>
-                  <Text style={[styles.hint, light && lightStyles.muted]}>{site.cooldown} minutes</Text>
+                  <Text style={[styles.soundText, light && lightStyles.text, glass && styles.glassText]}>{site.label}</Text>
+                  <Text style={[styles.hint, light && lightStyles.muted, glass && styles.glassMuted]}>{site.cooldown} minutes</Text>
                 </View>
                 <TouchableOpacity onPress={() => editSite(site)}><Text style={[styles.editText, light && lightStyles.text]}>Modifier</Text></TouchableOpacity>
                 <TouchableOpacity onPress={() => removeSite(site)}><Text style={styles.deleteText}>Supprimer</Text></TouchableOpacity>
@@ -539,13 +549,14 @@ export default function App() {
 
 
         <View style={[styles.player, light && lightStyles.card, glass && glassStyles.card]}>
+          {glass && <GlassLayer radius={18} />}
           <Image source={require('./assets/head.png')} style={styles.head} />
           <View style={{ flex: 1, marginLeft: 14 }}>
-            <Text style={[styles.joueur, light && lightStyles.muted]}>Joueur</Text>
-            <Text style={[styles.pseudo, light && lightStyles.text]}>{pseudo}</Text>
+            <Text style={[styles.joueur, light && lightStyles.muted, glass && styles.glassMuted]}>Joueur</Text>
+            <Text style={[styles.pseudo, light && lightStyles.text, glass && styles.glassText]}>{pseudo}</Text>
           </View>
           <TouchableOpacity onPress={changePseudo}>
-            <Text style={[styles.changer, light && lightStyles.muted]}>changer</Text>
+            <Text style={[styles.changer, light && lightStyles.muted, glass && styles.glassMuted]}>changer</Text>
           </TouchableOpacity>
         </View>
 
@@ -563,20 +574,22 @@ export default function App() {
           />
         ))}
         <TouchableOpacity style={[styles.wallpaperCard, glass ? styles.glassPanel : light ? styles.lightPanel : styles.darkPanel]} onPress={() => { setSettingsTab('appearance'); openPage('settings'); }}>
+          {glass && <GlassLayer radius={24} />}
           <View style={{ flex: 1 }}>
-            <Text style={[styles.wallpaperHeading, { color: light ? '#29364f' : '#fff' }]}>✦  Fond d'écran</Text>
-            <Text style={{ color: light ? '#65738e' : '#cbd6ed', marginTop: 5 }}>Personnaliser l'ambiance</Text>
+            <Text style={[styles.wallpaperHeading, { color: glass ? '#fff' : light ? '#29364f' : '#fff' }]}>✦  Fond d'écran</Text>
+            <Text style={{ color: glass ? '#d8e5ff' : light ? '#65738e' : '#cbd6ed', marginTop: 5 }}>Personnaliser l'ambiance</Text>
           </View>
           <Text style={{ fontSize: 24, color: light ? '#65738e' : '#fff' }}>›</Text>
         </TouchableOpacity>
         </>)}
       </ScrollView>
       <View style={[styles.bottomNav, light && lightStyles.bottomNav, glass && glassStyles.nav]}>
+        {glass && <GlassLayer radius={30} />}
         {[['home','⌂','Accueil'],['sites','☷','Sites']].map(([id, icon, label]) => (
           <TouchableOpacity key={id} accessibilityLabel={label} onPress={() => openPage(id)}
             style={[styles.navItem, page === id && styles.navActive]}>
-            <Text style={[styles.navIcon, { color: page === id ? '#ffffff' : (light ? '#333' : '#d7e0f5') }]}>{icon}</Text>
-            <Text style={[styles.navLabel, { color: page === id ? '#ffffff' : (light ? '#333' : '#d7e0f5') }]}>{label}</Text>
+            <Text style={[styles.navIcon, { color: page === id ? '#ffffff' : (glass ? '#e2eaff' : light ? '#333' : '#d7e0f5') }]}>{icon}</Text>
+            <Text style={[styles.navLabel, { color: page === id ? '#ffffff' : (glass ? '#e2eaff' : light ? '#333' : '#d7e0f5') }]}>{label}</Text>
           </TouchableOpacity>
         ))}
       </View>
@@ -585,13 +598,19 @@ export default function App() {
 }
 
 const styles = StyleSheet.create({
+  glassText: { color: '#ffffff' },
+  glassMuted: { color: '#d1def7' },
+  glassTabText: { color: '#203453' },
+  glassTab: { backgroundColor: 'rgba(231,239,255,0.92)' },
+  glassField: { backgroundColor: 'rgba(235,242,255,0.92)', color: '#172b4a', borderColor: 'rgba(255,255,255,0.75)' },
+
   topHeading: { width: '100%', maxWidth: 420, flexDirection: 'row', alignItems: 'center', marginBottom: 18 },
   headerCaption: { fontSize: 13, marginTop: -9, marginBottom: 8 },
   gearButton: { width: 48, height: 48, borderRadius: 24, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.55)' },
-  glassPanel: { backgroundColor: 'rgba(255,255,255,0.62)', borderColor: 'rgba(255,255,255,0.85)', borderWidth: 1 },
+  glassPanel: { backgroundColor: 'rgba(27,48,88,0.28)', borderColor: 'rgba(210,228,255,0.65)', borderWidth: 1, overflow: 'hidden' },
   lightPanel: { backgroundColor: 'rgba(255,255,255,0.90)', borderColor: 'rgba(210,222,244,0.8)', borderWidth: 1 },
   darkPanel: { backgroundColor: 'rgba(27,35,57,0.90)', borderColor: 'rgba(255,255,255,0.2)', borderWidth: 1 },
-  glassTimerCard: { width: '100%', maxWidth: 420, borderRadius: 28, padding: 18, marginBottom: 15, shadowColor: '#667eac', shadowOpacity: 0.13, shadowRadius: 15, shadowOffset: { width: 0, height: 8 }, elevation: 3 },
+  glassTimerCard: { width: '100%', maxWidth: 420, borderRadius: 28, padding: 18, marginBottom: 15, overflow: 'hidden', shadowColor: '#667eac', shadowOpacity: 0.13, shadowRadius: 15, shadowOffset: { width: 0, height: 8 }, elevation: 3 },
   timerTop: { flexDirection: 'row', alignItems: 'center' },
   timerTitle: { fontSize: 19, fontWeight: '800' },
   timerSubtitle: { fontSize: 12, marginTop: 4 },
@@ -613,7 +632,7 @@ const styles = StyleSheet.create({
   content: { paddingTop: 64, paddingBottom: 40, paddingHorizontal: 16, alignItems: 'center' },
   title: { color: '#fff', fontSize: 30, fontWeight: '800', marginBottom: 16 },
   player: {
-    width: '100%', maxWidth: 420, backgroundColor: '#1e1e1e', borderRadius: 18,
+    overflow: 'hidden', width: '100%', maxWidth: 420, backgroundColor: '#1e1e1e', borderRadius: 18,
     paddingVertical: 10, paddingHorizontal: 16, flexDirection: 'row', alignItems: 'center', marginBottom: 14,
   },
   head: { width: 56, height: 54 },
@@ -650,7 +669,7 @@ const styles = StyleSheet.create({
   activeTab: { backgroundColor: '#4a4a4a' },
   tabText: { color: '#bbb', fontSize: 12, fontWeight: '700' },
   activeTabText: { color: '#fff' },
-  settingsWrap: { width: '100%', maxWidth: 420, backgroundColor: '#1e1e1e', borderRadius: 18, padding: 16 },
+  settingsWrap: { width: '100%', maxWidth: 420, backgroundColor: '#1e1e1e', borderRadius: 18, padding: 16, overflow: 'hidden' },
   backButton: { paddingVertical: 12, marginBottom: 8 },
   backText: { color: '#ccc', fontWeight: '700', fontSize: 15 },
   sectionTitle: { color: '#fff', fontSize: 20, fontWeight: '800', marginTop: 20, marginBottom: 12 },
@@ -665,7 +684,7 @@ const styles = StyleSheet.create({
   managedRow: { flexDirection: 'row', alignItems: 'center', borderBottomWidth: 1, borderBottomColor: '#333', paddingVertical: 12 },
   deleteText: { color: '#ff7777', padding: 8 },
   editText: { color: '#83bfff', padding: 8, fontWeight: '700' },
-  bottomNav: { position: 'absolute', bottom: 18, left: 20, right: 20, flexDirection: 'row', padding: 6, backgroundColor: 'rgba(30,35,46,0.94)', borderRadius: 30, borderWidth: 1, borderColor: 'rgba(255,255,255,0.22)' },
+  bottomNav: { overflow: 'hidden', position: 'absolute', bottom: 18, left: 20, right: 20, flexDirection: 'row', padding: 6, backgroundColor: 'rgba(30,35,46,0.94)', borderRadius: 30, borderWidth: 1, borderColor: 'rgba(255,255,255,0.22)' },
   navItem: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 7, borderRadius: 24 },
   navActive: { backgroundColor: '#237eff' },
   navIcon: { fontSize: 22, fontWeight: '700' },
@@ -689,4 +708,4 @@ const lightStyles = StyleSheet.create({
   activeTab: { backgroundColor: '#dce0e9' },
 });
 
-const glassStyles = StyleSheet.create({ nav: { backgroundColor: 'rgba(32,49,78,0.50)', borderColor: 'rgba(255,255,255,0.48)' }, card: { backgroundColor: 'rgba(24,35,62,0.60)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.38)' } });
+const glassStyles = StyleSheet.create({ nav: { backgroundColor: 'rgba(32,49,78,0.50)', borderColor: 'rgba(255,255,255,0.48)' }, card: { backgroundColor: 'rgba(24,35,62,0.25)', borderWidth: 1, borderColor: 'rgba(215,230,255,0.55)' } });
