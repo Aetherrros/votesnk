@@ -84,6 +84,16 @@ const WALLPAPERS = [
   require('./assets/backgrounds/fond_mc_05_portail_du_nether.png'),
   require('./assets/backgrounds/fond_mc_06_desert.png'),
 ];
+// Copies réellement floutées des six fonds (créées avant la compilation).
+// Contrairement au flou d'une vue transparente, ces images ont des pixels floutés.
+const BLURRED_WALLPAPERS = [
+  require('./assets/backgrounds/fond_mc_01_jour_flou.jpg'),
+  require('./assets/backgrounds/fond_mc_02_coucher_de_soleil_flou.jpg'),
+  require('./assets/backgrounds/fond_mc_03_nuit_flou.jpg'),
+  require('./assets/backgrounds/fond_mc_04_neige_flou.jpg'),
+  require('./assets/backgrounds/fond_mc_05_portail_du_nether_flou.jpg'),
+  require('./assets/backgrounds/fond_mc_06_desert_flou.jpg'),
+];
 const WALLPAPER_NAMES = ['Jour', 'Coucher de soleil', 'Nuit', 'Neige', 'Portail du Nether', 'Désert'];
 
 const SETTINGS_KEY = 'snkmc_settings_v1';
@@ -205,33 +215,35 @@ const NATIVE_GLASS_API = (() => { try { return isGlassEffectAPIAvailable(); } ca
 const NATIVE_GLASS_MATERIAL = (() => { try { return isLiquidGlassAvailable(); } catch (_) { return false; } })();
 const NATIVE_GLASS_OK = NATIVE_GLASS_API && NATIVE_GLASS_MATERIAL;
 
-// Fond de verre dépoli : le flou reste visible même lorsque le matériau
-// Liquid Glass natif est très transparent sur une image de fond.
-function GlassLayer({ radius = 26, intensity = 95, wallpaperSource, position, scrollY = 0, screenWidth, screenHeight }) {
+// Flou garanti sur les fonds intégrés : on affiche une version déjà floutée
+// du même paysage, recadrée au même endroit que l'image nette fixe.
+// Seul le contenu du panneau est masqué par les coins arrondis.
+function GlassLayer({ radius = 26, wallpaperSource, blurredWallpaperSource, position, scrollY = 0, screenWidth, screenHeight }) {
+  const canAlign = Boolean(position && screenWidth && screenHeight);
   return (
-    <View pointerEvents="none" style={[StyleSheet.absoluteFillObject, { borderRadius: radius, overflow: 'hidden' }]}>
-      {wallpaperSource && position && screenWidth && screenHeight ? (
-        <Image
-          source={wallpaperSource}
-          resizeMode="cover"
-          blurRadius={24}
-          style={{ position: 'absolute', left: -(position.x), top: -(position.y - scrollY),
-            width: screenWidth, height: screenHeight }}
-        />
-      ) : <BlurView tint="dark" intensity={intensity} style={StyleSheet.absoluteFillObject} />}
-      <View style={[StyleSheet.absoluteFillObject, { backgroundColor: 'rgba(13, 32, 70, 0.36)' }]} />
-      {NATIVE_GLASS_OK && (
-        <GlassView pointerEvents="none" glassEffectStyle="regular"
-          style={[StyleSheet.absoluteFillObject, { borderRadius: radius, opacity: 0.08 }]} />
-      )}
-      <View style={{ position: 'absolute', top: 0, left: 12, right: 12, height: 1,
-        backgroundColor: 'rgba(255,255,255,0.42)' }} />
+    <View pointerEvents="none" style={[StyleSheet.absoluteFillObject,
+      { borderRadius: radius, overflow: 'hidden', backgroundColor: '#1c355b' }]}>
+      <Image
+        source={blurredWallpaperSource || wallpaperSource}
+        resizeMode="cover"
+        blurRadius={blurredWallpaperSource ? 0 : 32}
+        style={canAlign
+          ? { position: 'absolute', left: -position.x, top: -(position.y - scrollY),
+              width: screenWidth, height: screenHeight }
+          : StyleSheet.absoluteFillObject}
+      />
+      <View style={[StyleSheet.absoluteFillObject,
+        { backgroundColor: 'rgba(13, 31, 69, 0.44)' }]} />
+      <View style={[StyleSheet.absoluteFillObject, { borderWidth: 1,
+        borderRadius: radius, borderColor: 'rgba(220,239,255,0.48)' }]} />
+      <View style={{ position: 'absolute', top: 1, left: 20, right: 20, height: 1,
+        backgroundColor: 'rgba(255,255,255,0.55)' }} />
     </View>
   );
 }
 
 // ---------------------------------------------------------------- carte Liquid Glass d'un minuteur
-function SiteCard({ site, ts, now, onVote, onReset, onEdit, light, glass, wallpaperSource, scrollY, screenWidth, screenHeight }) {
+function SiteCard({ site, ts, now, onVote, onReset, onEdit, light, glass, wallpaperSource, blurredWallpaperSource, scrollY, screenWidth, screenHeight }) {
   const [glassPosition, setGlassPosition] = useState(null);
   const remaining = Math.max(0, Math.ceil(((ts || 0) - now) / 1000));
   const total = Math.max(1, site.cooldown * 60);
@@ -246,7 +258,7 @@ function SiteCard({ site, ts, now, onVote, onReset, onEdit, light, glass, wallpa
       const { x, y } = e.nativeEvent.layout;
       setGlassPosition(old => old && old.x === x && old.y === y ? old : { x, y });
     }} style={[styles.glassTimerCard, glass ? styles.glassPanel : light ? styles.lightPanel : styles.darkPanel]}>
-      {glass && <GlassLayer radius={28} wallpaperSource={wallpaperSource}
+      {glass && <GlassLayer radius={28} wallpaperSource={wallpaperSource} blurredWallpaperSource={blurredWallpaperSource}
         position={glassPosition} scrollY={scrollY} screenWidth={screenWidth} screenHeight={screenHeight} />}
       <View style={styles.timerTop}>
         <View style={{ flex: 1 }}>
@@ -303,6 +315,9 @@ export default function App() {
   const wallpaperSource = /^(file:\/\/|content:\/\/|ph:\/\/|assets-library:\/\/)/i.test(wallpaper)
     ? { uri: wallpaper }
     : WALLPAPERS[Math.max(0, Math.min(WALLPAPERS.length - 1, Number(wallpaper) || 0))];
+  const blurredWallpaperSource = /^(file:\/\/|content:\/\/|ph:\/\/|assets-library:\/\/)/i.test(wallpaper)
+    ? null // Photos personnelles : flou iOS de l'image originale.
+    : BLURRED_WALLPAPERS[Math.max(0, Math.min(BLURRED_WALLPAPERS.length - 1, Number(wallpaper) || 0))];
   const light = appearance === 'light' || (appearance === 'system' && systemTheme === 'light');
   const [newName, setNewName] = useState('');
   const [newUrl, setNewUrl] = useState('');
@@ -496,13 +511,13 @@ export default function App() {
             {!settings && <Text style={[styles.headerCaption, { color: glass ? '#ffffff' : light ? '#65738e' : '#c4cee0' }]}>Tes rappels de vote, au bon moment</Text>}
           </View>
           <TouchableOpacity onLayout={e => { const {x,y}=e.nativeEvent.layout; setGearRect(old => old && old.x === x && old.y === y ? old : {x,y}); }} accessibilityLabel="Ouvrir les réglages" onPress={() => openPage(settings ? 'home' : 'settings')} style={[styles.gearButton, glass ? styles.glassPanel : light ? styles.lightPanel : styles.darkPanel]}>
-            {glass && <GlassLayer radius={24} />}
+            {glass && <GlassLayer radius={24} wallpaperSource={wallpaperSource} blurredWallpaperSource={blurredWallpaperSource} />}
             <Text style={{ fontSize: 25, color: glass ? '#fff' : light ? '#465877' : '#fff' }}>{settings ? '×' : '⚙︎'}</Text>
           </TouchableOpacity>
         </View>
         {settings ? (
           <View style={[styles.settingsWrap, light && lightStyles.card, glass && glassStyles.card]}>
-            {glass && <GlassLayer radius={18} intensity={65} />}
+            {glass && <GlassLayer radius={18} wallpaperSource={wallpaperSource} blurredWallpaperSource={blurredWallpaperSource} />}
             <TouchableOpacity style={styles.backButton} onPress={() => openPage('home')}><Text style={[styles.backText, light && lightStyles.text, glass && styles.glassText]}>← Retour aux minuteurs</Text></TouchableOpacity>
             <View style={styles.tabBar}>
               {[['appearance','Apparence'], ['sounds','Sons'], ['timers','Minuteurs']].map(([id,label]) => (
@@ -569,7 +584,7 @@ export default function App() {
           </View>
         ) : page === 'sites' ? (
           <View style={[styles.settingsWrap, light && lightStyles.card, glass && glassStyles.card]}>
-            {glass && <GlassLayer radius={18} />}
+            {glass && <GlassLayer radius={18} wallpaperSource={wallpaperSource} blurredWallpaperSource={blurredWallpaperSource} />}
             <Text style={[styles.sectionTitle, light && lightStyles.text, glass && styles.glassText]}>Sites de vote</Text>
             {sites.map(site => (
               <View key={site.key} style={[styles.managedRow, light && lightStyles.divider]}>
@@ -587,7 +602,7 @@ export default function App() {
 
 
         <View onLayout={e => { const {x,y}=e.nativeEvent.layout; setPlayerRect(old => old && old.x === x && old.y === y ? old : {x,y}); }} style={[styles.player, light && lightStyles.card, glass && glassStyles.card]}>
-          {glass && <GlassLayer radius={18} wallpaperSource={wallpaperSource} position={playerRect} scrollY={scrollY} screenWidth={screenWidth} screenHeight={screenHeight} />}
+          {glass && <GlassLayer radius={18} wallpaperSource={wallpaperSource} blurredWallpaperSource={blurredWallpaperSource} position={playerRect} scrollY={scrollY} screenWidth={screenWidth} screenHeight={screenHeight} />}
           <Image source={require('./assets/head.png')} style={styles.head} />
           <View style={{ flex: 1, marginLeft: 14 }}>
             <Text style={[styles.joueur, light && lightStyles.muted, glass && styles.glassMuted]}>Joueur</Text>
@@ -609,6 +624,7 @@ export default function App() {
             light={light}
             glass={glass}
             wallpaperSource={wallpaperSource}
+            blurredWallpaperSource={blurredWallpaperSource}
             scrollY={scrollY}
             screenWidth={screenWidth}
             screenHeight={screenHeight}
@@ -616,7 +632,7 @@ export default function App() {
           />
         ))}
         <TouchableOpacity onLayout={e => { const {x,y}=e.nativeEvent.layout; setWallpaperRect(old => old && old.x === x && old.y === y ? old : {x,y}); }} style={[styles.wallpaperCard, glass ? styles.glassPanel : light ? styles.lightPanel : styles.darkPanel]} onPress={() => { setSettingsTab('appearance'); openPage('settings'); }}>
-          {glass && <GlassLayer radius={24} wallpaperSource={wallpaperSource} position={wallpaperRect} scrollY={scrollY} screenWidth={screenWidth} screenHeight={screenHeight} />}
+          {glass && <GlassLayer radius={24} wallpaperSource={wallpaperSource} blurredWallpaperSource={blurredWallpaperSource} position={wallpaperRect} scrollY={scrollY} screenWidth={screenWidth} screenHeight={screenHeight} />}
           <View style={{ flex: 1 }}>
             <Text style={[styles.wallpaperHeading, { color: glass ? '#fff' : light ? '#29364f' : '#fff' }]}>✦  Fond d'écran</Text>
             <Text style={{ color: glass ? '#d8e5ff' : light ? '#65738e' : '#cbd6ed', marginTop: 5 }}>Personnaliser l'ambiance</Text>
@@ -626,7 +642,7 @@ export default function App() {
         </>)}
       </ScrollView>
       <View style={[styles.bottomNav, light && lightStyles.bottomNav, glass && glassStyles.nav]}>
-        {glass && <GlassLayer radius={30} />}
+        {glass && <GlassLayer radius={30} wallpaperSource={wallpaperSource} blurredWallpaperSource={blurredWallpaperSource} />}
         {[['home','⌂','Accueil'],['sites','☷','Sites']].map(([id, icon, label]) => (
           <TouchableOpacity key={id} accessibilityLabel={label} onPress={() => openPage(id)}
             style={[styles.navItem, page === id && styles.navActive]}>
