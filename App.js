@@ -205,13 +205,21 @@ const NATIVE_GLASS_API = (() => { try { return isGlassEffectAPIAvailable(); } ca
 const NATIVE_GLASS_MATERIAL = (() => { try { return isLiquidGlassAvailable(); } catch (_) { return false; } })();
 const NATIVE_GLASS_OK = NATIVE_GLASS_API && NATIVE_GLASS_MATERIAL;
 
-function GlassLayer({ radius = 26, intensity = 80 }) {
-  if (NATIVE_GLASS_OK) {
-    return <GlassView pointerEvents="none" glassEffectStyle="regular"
-      style={[StyleSheet.absoluteFillObject, { borderRadius: radius }]} />;
-  }
-  return <BlurView pointerEvents="none" tint="dark" intensity={intensity}
-    style={[StyleSheet.absoluteFillObject, { borderRadius: radius }]} />;
+// Fond de verre dépoli : le flou reste visible même lorsque le matériau
+// Liquid Glass natif est très transparent sur une image de fond.
+function GlassLayer({ radius = 26, intensity = 95 }) {
+  return (
+    <View pointerEvents="none" style={[StyleSheet.absoluteFillObject, { borderRadius: radius, overflow: 'hidden' }]}>
+      <BlurView tint="dark" intensity={intensity} style={StyleSheet.absoluteFillObject} />
+      <View style={[StyleSheet.absoluteFillObject, { backgroundColor: 'rgba(13, 30, 62, 0.52)' }]} />
+      {NATIVE_GLASS_OK && (
+        <GlassView pointerEvents="none" glassEffectStyle="regular"
+          style={[StyleSheet.absoluteFillObject, { borderRadius: radius, opacity: 0.38 }]} />
+      )}
+      <View style={{ position: 'absolute', top: 0, left: 12, right: 12, height: 1,
+        backgroundColor: 'rgba(255,255,255,0.42)' }} />
+    </View>
+  );
 }
 
 // ---------------------------------------------------------------- carte Liquid Glass d'un minuteur
@@ -274,7 +282,7 @@ export default function App() {
   const [wallpaper, setWallpaper] = useState('0');
   const systemTheme = useColorScheme();
   const glass = appearance === 'glass';
-  const light = glass || appearance === 'light' || (appearance === 'system' && systemTheme === 'light');
+  const light = appearance === 'light' || (appearance === 'system' && systemTheme === 'light');
   const [newName, setNewName] = useState('');
   const [newUrl, setNewUrl] = useState('');
   const [newMinutes, setNewMinutes] = useState('');
@@ -460,11 +468,7 @@ export default function App() {
       }]} />
       <StatusBar barStyle={glass ? 'light-content' : light ? 'dark-content' : 'light-content'} />
       <ScrollView key={page} contentContainerStyle={[styles.content, { paddingBottom: 112 }]}>
-        {glass && <View style={{ alignSelf: 'stretch', backgroundColor: 'rgba(0,12,38,0.88)', padding: 12, borderRadius: 12, marginBottom: 12, borderWidth: 1, borderColor: '#91b8ff' }}>
-          <Text selectable style={{ color: '#ffffff', fontSize: 13, fontWeight: '800' }}>DIAGNOSTIC LIQUID GLASS</Text>
-          <Text selectable style={{ color: '#ffffff', fontSize: 12, marginTop: 4 }}>API native : {NATIVE_GLASS_API ? 'OUI' : 'NON'}  |  Matériau Apple : {NATIVE_GLASS_MATERIAL ? 'OUI' : 'NON'}</Text>
-          <Text style={{ color: '#c7e0ff', fontSize: 11, marginTop: 3 }}>{NATIVE_GLASS_OK ? 'Verre natif activé' : 'Repli expo-blur activé'}</Text>
-        </View>}
+        
         <View style={styles.topHeading}>
           <View style={{ flex: 1 }}>
             <Text style={[styles.title, light && lightStyles.text]}>
