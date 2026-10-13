@@ -75,14 +75,14 @@ const SOUND_IDS = SOUND_NAMES.map((name, i) => ({ name, id: ["01_ding_classique.
 const DEFAULT_SOUND = SOUND_IDS[0].id;
 
 const WALLPAPERS = [
-  require('./assets/backgrounds/voxel_01.jpg'),
-  require('./assets/backgrounds/voxel_02.jpg'),
-  require('./assets/backgrounds/voxel_03.jpg'),
-  require('./assets/backgrounds/voxel_04.jpg'),
-  require('./assets/backgrounds/voxel_05.jpg'),
-  require('./assets/backgrounds/voxel_06.jpg'),
+  require('./assets/backgrounds/fond_mc_01_jour.png'),
+  require('./assets/backgrounds/fond_mc_02_coucher_de_soleil.png'),
+  require('./assets/backgrounds/fond_mc_03_nuit.png'),
+  require('./assets/backgrounds/fond_mc_04_neige.png'),
+  require('./assets/backgrounds/fond_mc_05_portail_du_nether.png'),
+  require('./assets/backgrounds/fond_mc_06_desert.png'),
 ];
-const WALLPAPER_NAMES = ['Prairie', 'Nuit', 'Crépuscule', 'Montagnes', 'Forêt', 'Portail'];
+const WALLPAPER_NAMES = ['Jour', 'Coucher de soleil', 'Nuit', 'Neige', 'Portail du Nether', 'Désert'];
 
 const SETTINGS_KEY = 'snkmc_settings_v1';
 
