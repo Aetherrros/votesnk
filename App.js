@@ -10,6 +10,7 @@ import { createAudioPlayer } from 'expo-audio';
 import * as ImagePicker from 'expo-image-picker';
 import * as FileSystem from 'expo-file-system/legacy';
 import { BlurView } from 'expo-blur';
+import { GlassView, isGlassEffectAPIAvailable, isLiquidGlassAvailable } from 'expo-glass-effect';
 
 // ---------------------------------------------------------------- réglages
 const DEFAULT_PSEUDO = 'Aetherros';
@@ -199,10 +200,39 @@ function Pair({ a, b, theme, light }) {
   );
 }
 
-// Flou natif iOS : une vraie couche floutée sous le contenu, sans flouter les textes.
-function GlassLayer({ radius = 26, intensity = 48 }) {
-  return <BlurView pointerEvents="none" tint="dark" intensity={intensity}
-    style={[StyleSheet.absoluteFillObject, { borderRadius: radius, overflow: 'hidden' }]} />;
+// Verre natif Apple sur iOS 26+, avec repli flouté sur les systèmes incompatibles.
+// Le matériau doit être dessiné sous le contenu, sans opacité sur son parent.
+const CAN_USE_NATIVE_GLASS = (() => {
+  try { return isGlassEffectAPIAvailable() && isLiquidGlassAvailable(); }
+  catch (_) { return false; }
+})();
+
+function GlassLayer({ radius = 26, intensity = 80 }) {
+  if (CAN_USE_NATIVE_GLASS) {
+    return (
+      <GlassView
+        pointerEvents="none"
+        glassEffectStyle="regular"
+        colorScheme="dark"
+        tintColor="#27416c"
+        style={[StyleSheet.absoluteFillObject, { borderRadius: radius }]}
+      />
+    );
+  }
+  return (
+    <BlurView pointerEvents="none" tint="dark" intensity={intensity}
+      style={[StyleSheet.absoluteFillObject, { borderRadius: radius }]} />
+  );
+}
+
+// Rouage vectoriel dessiné avec du texte monochrome (pas l'emoji métallique iOS).
+function GearGlyph({ close = false }) {
+  return (
+    <Text style={{ fontSize: close ? 28 : 31, fontWeight: '500', color: '#ffffff',
+      textAlign: 'center', includeFontPadding: false, lineHeight: 36 }}>
+      {close ? '×' : '⚙︎'}
+    </Text>
+  );
 }
 
 // ---------------------------------------------------------------- carte Liquid Glass d'un minuteur
@@ -460,7 +490,7 @@ export default function App() {
           </View>
           <TouchableOpacity accessibilityLabel="Ouvrir les réglages" onPress={() => openPage(settings ? 'home' : 'settings')} style={[styles.gearButton, glass ? styles.glassPanel : light ? styles.lightPanel : styles.darkPanel]}>
             {glass && <GlassLayer radius={24} />}
-            <Text style={{ fontSize: 25, color: glass ? '#fff' : light ? '#465877' : '#fff' }}>{settings ? '×' : '⚙'}</Text>
+            {glass ? <GearGlyph close={settings} /> : <Text style={{ fontSize: 25, color: light ? '#465877' : '#fff' }}>{settings ? '×' : '⚙︎'}</Text>}
           </TouchableOpacity>
         </View>
         {settings ? (
@@ -532,6 +562,7 @@ export default function App() {
           </View>
         ) : page === 'sites' ? (
           <View style={[styles.settingsWrap, light && lightStyles.card, glass && glassStyles.card]}>
+            {glass && <GlassLayer radius={18} />}
             <Text style={[styles.sectionTitle, light && lightStyles.text, glass && styles.glassText]}>Sites de vote</Text>
             {sites.map(site => (
               <View key={site.key} style={[styles.managedRow, light && lightStyles.divider]}>
@@ -607,7 +638,7 @@ const styles = StyleSheet.create({
   topHeading: { width: '100%', maxWidth: 420, flexDirection: 'row', alignItems: 'center', marginBottom: 18 },
   headerCaption: { fontSize: 13, marginTop: -9, marginBottom: 8 },
   gearButton: { width: 48, height: 48, borderRadius: 24, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.55)' },
-  glassPanel: { backgroundColor: 'rgba(27,48,88,0.28)', borderColor: 'rgba(210,228,255,0.65)', borderWidth: 1, overflow: 'hidden' },
+  glassPanel: { backgroundColor: 'transparent', borderColor: 'rgba(220,235,255,0.75)', borderWidth: 1, overflow: 'hidden' },
   lightPanel: { backgroundColor: 'rgba(255,255,255,0.90)', borderColor: 'rgba(210,222,244,0.8)', borderWidth: 1 },
   darkPanel: { backgroundColor: 'rgba(27,35,57,0.90)', borderColor: 'rgba(255,255,255,0.2)', borderWidth: 1 },
   glassTimerCard: { width: '100%', maxWidth: 420, borderRadius: 28, padding: 18, marginBottom: 15, overflow: 'hidden', shadowColor: '#667eac', shadowOpacity: 0.13, shadowRadius: 15, shadowOffset: { width: 0, height: 8 }, elevation: 3 },
@@ -708,4 +739,4 @@ const lightStyles = StyleSheet.create({
   activeTab: { backgroundColor: '#dce0e9' },
 });
 
-const glassStyles = StyleSheet.create({ nav: { backgroundColor: 'rgba(32,49,78,0.50)', borderColor: 'rgba(255,255,255,0.48)' }, card: { backgroundColor: 'rgba(24,35,62,0.25)', borderWidth: 1, borderColor: 'rgba(215,230,255,0.55)' } });
+const glassStyles = StyleSheet.create({ nav: { backgroundColor: 'transparent', borderColor: 'rgba(255,255,255,0.55)' }, card: { backgroundColor: 'transparent', borderWidth: 1, borderColor: 'rgba(215,230,255,0.55)' } });

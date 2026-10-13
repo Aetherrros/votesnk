@@ -13,6 +13,7 @@
     "expo-audio": "*",
     "expo-image-picker": "*",
     "expo-file-system": "*",
+    "expo-glass-effect": "~57.0.4",
     "expo-blur": "*"
   },
   "scripts": {
