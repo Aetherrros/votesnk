@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import {
   Alert, Animated, Easing, Image, ImageBackground, Linking, ScrollView, StatusBar, StyleSheet,
-  Text, TextInput, TouchableOpacity, View, useColorScheme,
+  Text, TextInput, TouchableOpacity, View, useColorScheme, useWindowDimensions,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Clipboard from 'expo-clipboard';
@@ -207,14 +207,22 @@ const NATIVE_GLASS_OK = NATIVE_GLASS_API && NATIVE_GLASS_MATERIAL;
 
 // Fond de verre dépoli : le flou reste visible même lorsque le matériau
 // Liquid Glass natif est très transparent sur une image de fond.
-function GlassLayer({ radius = 26, intensity = 95 }) {
+function GlassLayer({ radius = 26, intensity = 95, wallpaperSource, position, scrollY = 0, screenWidth, screenHeight }) {
   return (
     <View pointerEvents="none" style={[StyleSheet.absoluteFillObject, { borderRadius: radius, overflow: 'hidden' }]}>
-      <BlurView tint="dark" intensity={intensity} style={StyleSheet.absoluteFillObject} />
-      <View style={[StyleSheet.absoluteFillObject, { backgroundColor: 'rgba(13, 30, 62, 0.52)' }]} />
+      {wallpaperSource && position && screenWidth && screenHeight ? (
+        <Image
+          source={wallpaperSource}
+          resizeMode="cover"
+          blurRadius={24}
+          style={{ position: 'absolute', left: -(position.x), top: -(position.y - scrollY),
+            width: screenWidth, height: screenHeight }}
+        />
+      ) : <BlurView tint="dark" intensity={intensity} style={StyleSheet.absoluteFillObject} />}
+      <View style={[StyleSheet.absoluteFillObject, { backgroundColor: 'rgba(13, 32, 70, 0.36)' }]} />
       {NATIVE_GLASS_OK && (
         <GlassView pointerEvents="none" glassEffectStyle="regular"
-          style={[StyleSheet.absoluteFillObject, { borderRadius: radius, opacity: 0.38 }]} />
+          style={[StyleSheet.absoluteFillObject, { borderRadius: radius, opacity: 0.08 }]} />
       )}
       <View style={{ position: 'absolute', top: 0, left: 12, right: 12, height: 1,
         backgroundColor: 'rgba(255,255,255,0.42)' }} />
@@ -223,7 +231,8 @@ function GlassLayer({ radius = 26, intensity = 95 }) {
 }
 
 // ---------------------------------------------------------------- carte Liquid Glass d'un minuteur
-function SiteCard({ site, ts, now, onVote, onReset, onEdit, light, glass }) {
+function SiteCard({ site, ts, now, onVote, onReset, onEdit, light, glass, wallpaperSource, scrollY, screenWidth, screenHeight }) {
+  const [glassPosition, setGlassPosition] = useState(null);
   const remaining = Math.max(0, Math.ceil(((ts || 0) - now) / 1000));
   const total = Math.max(1, site.cooldown * 60);
   const elapsed = Math.min(1, Math.max(0, (total - remaining) / total));
@@ -233,8 +242,12 @@ function SiteCard({ site, ts, now, onVote, onReset, onEdit, light, glass }) {
   const ready = remaining === 0;
   const tint = ready ? '#37a88e' : '#5578e9';
   return (
-    <View style={[styles.glassTimerCard, glass ? styles.glassPanel : light ? styles.lightPanel : styles.darkPanel]}>
-      {glass && <GlassLayer radius={28} />}
+    <View onLayout={e => {
+      const { x, y } = e.nativeEvent.layout;
+      setGlassPosition(old => old && old.x === x && old.y === y ? old : { x, y });
+    }} style={[styles.glassTimerCard, glass ? styles.glassPanel : light ? styles.lightPanel : styles.darkPanel]}>
+      {glass && <GlassLayer radius={28} wallpaperSource={wallpaperSource}
+        position={glassPosition} scrollY={scrollY} screenWidth={screenWidth} screenHeight={screenHeight} />}
       <View style={styles.timerTop}>
         <View style={{ flex: 1 }}>
           <Text style={[styles.timerTitle, { color: glass ? '#ffffff' : light ? '#24304a' : '#f7f8ff' }]} numberOfLines={1}>{site.label}</Text>
@@ -282,6 +295,14 @@ export default function App() {
   const [wallpaper, setWallpaper] = useState('0');
   const systemTheme = useColorScheme();
   const glass = appearance === 'glass';
+  const { width: screenWidth, height: screenHeight } = useWindowDimensions();
+  const [scrollY, setScrollY] = useState(0);
+  const [playerRect, setPlayerRect] = useState(null);
+  const [wallpaperRect, setWallpaperRect] = useState(null);
+  const [gearRect, setGearRect] = useState(null);
+  const wallpaperSource = /^(file:\/\/|content:\/\/|ph:\/\/|assets-library:\/\/)/i.test(wallpaper)
+    ? { uri: wallpaper }
+    : WALLPAPERS[Math.max(0, Math.min(WALLPAPERS.length - 1, Number(wallpaper) || 0))];
   const light = appearance === 'light' || (appearance === 'system' && systemTheme === 'light');
   const [newName, setNewName] = useState('');
   const [newUrl, setNewUrl] = useState('');
@@ -456,9 +477,7 @@ export default function App() {
   return (
     <ImageBackground
       key={wallpaper}
-      source={/^(file:\/\/|content:\/\/|ph:\/\/|assets-library:\/\/)/i.test(wallpaper)
-        ? { uri: wallpaper }
-        : WALLPAPERS[Math.max(0, Math.min(WALLPAPERS.length - 1, Number(wallpaper) || 0))]}
+      source={wallpaperSource}
       resizeMode="cover"
       style={[styles.screen, { backgroundColor: '#e7efff' }]}
       imageStyle={{ width: '100%', height: '100%' }}
@@ -467,7 +486,7 @@ export default function App() {
         backgroundColor: glass ? 'rgba(4,10,31,0.18)' : light ? 'rgba(255,255,255,0.16)' : 'rgba(7,15,36,0.24)',
       }]} />
       <StatusBar barStyle={glass ? 'light-content' : light ? 'dark-content' : 'light-content'} />
-      <ScrollView key={page} contentContainerStyle={[styles.content, { paddingBottom: 112 }]}>
+      <ScrollView key={page} scrollEventThrottle={32} onScroll={e => { if (glass) setScrollY(e.nativeEvent.contentOffset.y); }} contentContainerStyle={[styles.content, { paddingBottom: 112 }]}>
         
         <View style={styles.topHeading}>
           <View style={{ flex: 1 }}>
@@ -476,7 +495,7 @@ export default function App() {
             </Text>
             {!settings && <Text style={[styles.headerCaption, { color: glass ? '#ffffff' : light ? '#65738e' : '#c4cee0' }]}>Tes rappels de vote, au bon moment</Text>}
           </View>
-          <TouchableOpacity accessibilityLabel="Ouvrir les réglages" onPress={() => openPage(settings ? 'home' : 'settings')} style={[styles.gearButton, glass ? styles.glassPanel : light ? styles.lightPanel : styles.darkPanel]}>
+          <TouchableOpacity onLayout={e => { const {x,y}=e.nativeEvent.layout; setGearRect(old => old && old.x === x && old.y === y ? old : {x,y}); }} accessibilityLabel="Ouvrir les réglages" onPress={() => openPage(settings ? 'home' : 'settings')} style={[styles.gearButton, glass ? styles.glassPanel : light ? styles.lightPanel : styles.darkPanel]}>
             {glass && <GlassLayer radius={24} />}
             <Text style={{ fontSize: 25, color: glass ? '#fff' : light ? '#465877' : '#fff' }}>{settings ? '×' : '⚙︎'}</Text>
           </TouchableOpacity>
@@ -567,8 +586,8 @@ export default function App() {
         ) : (<>
 
 
-        <View style={[styles.player, light && lightStyles.card, glass && glassStyles.card]}>
-          {glass && <GlassLayer radius={18} />}
+        <View onLayout={e => { const {x,y}=e.nativeEvent.layout; setPlayerRect(old => old && old.x === x && old.y === y ? old : {x,y}); }} style={[styles.player, light && lightStyles.card, glass && glassStyles.card]}>
+          {glass && <GlassLayer radius={18} wallpaperSource={wallpaperSource} position={playerRect} scrollY={scrollY} screenWidth={screenWidth} screenHeight={screenHeight} />}
           <Image source={require('./assets/head.png')} style={styles.head} />
           <View style={{ flex: 1, marginLeft: 14 }}>
             <Text style={[styles.joueur, light && lightStyles.muted, glass && styles.glassMuted]}>Joueur</Text>
@@ -589,11 +608,15 @@ export default function App() {
             onReset={() => reset(site)}
             light={light}
             glass={glass}
+            wallpaperSource={wallpaperSource}
+            scrollY={scrollY}
+            screenWidth={screenWidth}
+            screenHeight={screenHeight}
             onEdit={() => editSite(site)}
           />
         ))}
-        <TouchableOpacity style={[styles.wallpaperCard, glass ? styles.glassPanel : light ? styles.lightPanel : styles.darkPanel]} onPress={() => { setSettingsTab('appearance'); openPage('settings'); }}>
-          {glass && <GlassLayer radius={24} />}
+        <TouchableOpacity onLayout={e => { const {x,y}=e.nativeEvent.layout; setWallpaperRect(old => old && old.x === x && old.y === y ? old : {x,y}); }} style={[styles.wallpaperCard, glass ? styles.glassPanel : light ? styles.lightPanel : styles.darkPanel]} onPress={() => { setSettingsTab('appearance'); openPage('settings'); }}>
+          {glass && <GlassLayer radius={24} wallpaperSource={wallpaperSource} position={wallpaperRect} scrollY={scrollY} screenWidth={screenWidth} screenHeight={screenHeight} />}
           <View style={{ flex: 1 }}>
             <Text style={[styles.wallpaperHeading, { color: glass ? '#fff' : light ? '#29364f' : '#fff' }]}>✦  Fond d'écran</Text>
             <Text style={{ color: glass ? '#d8e5ff' : light ? '#65738e' : '#cbd6ed', marginTop: 5 }}>Personnaliser l'ambiance</Text>
@@ -625,7 +648,7 @@ const styles = StyleSheet.create({
 
   topHeading: { width: '100%', maxWidth: 420, flexDirection: 'row', alignItems: 'center', marginBottom: 18 },
   headerCaption: { fontSize: 13, marginTop: -9, marginBottom: 8 },
-  gearButton: { width: 48, height: 48, borderRadius: 24, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.55)' },
+  gearButton: { width: 58, height: 58, borderRadius: 29, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.55)' },
   glassPanel: { backgroundColor: 'transparent', borderColor: 'rgba(210,228,255,0.65)', borderWidth: 1, overflow: 'hidden' },
   lightPanel: { backgroundColor: 'rgba(255,255,255,0.90)', borderColor: 'rgba(210,222,244,0.8)', borderWidth: 1 },
   darkPanel: { backgroundColor: 'rgba(27,35,57,0.90)', borderColor: 'rgba(255,255,255,0.2)', borderWidth: 1 },
@@ -640,10 +663,10 @@ const styles = StyleSheet.create({
   timerClock: { fontSize: 26, fontWeight: '800', fontVariant: ['tabular-nums'] },
   timerState: { fontSize: 12, fontWeight: '700', marginTop: 5 },
   timerButtons: { flexDirection: 'row', gap: 10 },
-  voteGlassButton: { flex: 1, paddingVertical: 13, backgroundColor: '#6378eb', borderRadius: 17, alignItems: 'center' },
+  voteGlassButton: { flex: 1, paddingVertical: 13, backgroundColor: '#2379ff', borderRadius: 17, alignItems: 'center' },
   voteGlassText: { color: '#fff', fontWeight: '800', fontSize: 15 },
-  resetGlassButton: { flex: 1, paddingVertical: 13, backgroundColor: 'rgba(216,225,247,0.78)', borderRadius: 17, alignItems: 'center' },
-  resetGlassText: { color: '#465778', fontWeight: '800', fontSize: 13 },
+  resetGlassButton: { flex: 1, paddingVertical: 13, backgroundColor: 'rgba(151,180,239,0.38)', borderRadius: 17, alignItems: 'center' },
+  resetGlassText: { color: '#ffffff', fontWeight: '800', fontSize: 13 },
   wallpaperCard: { width: '100%', maxWidth: 420, borderRadius: 24, padding: 18, flexDirection: 'row', alignItems: 'center', marginTop: 4 },
   wallpaperHeading: { fontSize: 17, fontWeight: '800' },
 
