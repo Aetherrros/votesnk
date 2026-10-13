@@ -429,14 +429,18 @@ export default function App() {
   };
 
   return (
-    <View style={[styles.screen, light && lightStyles.screen]}>
-      {<ImageBackground
-        key={wallpaper}
-        source={wallpaper.startsWith('file:') ? { uri: wallpaper } : WALLPAPERS[Math.max(0, Math.min(5, Number(wallpaper) || 0))]}
-        resizeMode="cover"
-        style={StyleSheet.absoluteFillObject}
-      />}
-      {<View pointerEvents="none" style={[StyleSheet.absoluteFillObject, { backgroundColor: glass ? 'rgba(236,243,255,0.35)' : light ? 'rgba(255,255,255,0.70)' : 'rgba(7,15,36,0.60)' }]} />}
+    <ImageBackground
+      key={wallpaper}
+      source={/^(file:\/\/|content:\/\/|ph:\/\/|assets-library:\/\/)/i.test(wallpaper)
+        ? { uri: wallpaper }
+        : WALLPAPERS[Math.max(0, Math.min(WALLPAPERS.length - 1, Number(wallpaper) || 0))]}
+      resizeMode="cover"
+      style={[styles.screen, { backgroundColor: '#e7efff' }]}
+      imageStyle={{ width: '100%', height: '100%' }}
+    >
+      <View pointerEvents="none" style={[StyleSheet.absoluteFillObject, {
+        backgroundColor: glass ? 'rgba(235,242,255,0.12)' : light ? 'rgba(255,255,255,0.16)' : 'rgba(7,15,36,0.24)',
+      }]} />
       <StatusBar barStyle={light ? "dark-content" : "light-content"} />
       <ScrollView key={page} contentContainerStyle={[styles.content, { paddingBottom: 112 }]}>
         <View style={styles.topHeading}>
@@ -481,7 +485,7 @@ export default function App() {
                   <TouchableOpacity onPress={chooseCustomWallpaper} style={[styles.addButton, { backgroundColor: '#2161a8', marginTop: 6 }]}>
                     <Text style={styles.addText}>＋ Choisir une photo sur mon iPhone</Text>
                   </TouchableOpacity>
-                  {wallpaper.startsWith('file:') && <Text style={[styles.hint, { color: '#fff', marginTop: 8 }]}>✓ Fond personnalisé sélectionné</Text>}
+                  {(/^(file:\/\/|content:\/\/|ph:\/\/|assets-library:\/\/)/i.test(wallpaper)) && <Text style={[styles.hint, { color: '#fff', marginTop: 8 }]}>✓ Fond personnalisé sélectionné</Text>}
                 </>}
               </>
             ) : settingsTab === 'sounds' ? (
@@ -576,7 +580,7 @@ export default function App() {
           </TouchableOpacity>
         ))}
       </View>
-    </View>
+    </ImageBackground>
   );
 }
 
