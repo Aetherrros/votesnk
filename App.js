@@ -200,39 +200,18 @@ function Pair({ a, b, theme, light }) {
   );
 }
 
-// Verre natif Apple sur iOS 26+, avec repli flouté sur les systèmes incompatibles.
-// Le matériau doit être dessiné sous le contenu, sans opacité sur son parent.
-const CAN_USE_NATIVE_GLASS = (() => {
-  try { return isGlassEffectAPIAvailable() && isLiquidGlassAvailable(); }
-  catch (_) { return false; }
-})();
+// Diagnostic du matériau natif iOS : affiché en haut de l'écran en mode verre.
+const NATIVE_GLASS_API = (() => { try { return isGlassEffectAPIAvailable(); } catch (_) { return false; } })();
+const NATIVE_GLASS_MATERIAL = (() => { try { return isLiquidGlassAvailable(); } catch (_) { return false; } })();
+const NATIVE_GLASS_OK = NATIVE_GLASS_API && NATIVE_GLASS_MATERIAL;
 
 function GlassLayer({ radius = 26, intensity = 80 }) {
-  if (CAN_USE_NATIVE_GLASS) {
-    return (
-      <GlassView
-        pointerEvents="none"
-        glassEffectStyle="regular"
-        colorScheme="dark"
-        tintColor="#27416c"
-        style={[StyleSheet.absoluteFillObject, { borderRadius: radius }]}
-      />
-    );
+  if (NATIVE_GLASS_OK) {
+    return <GlassView pointerEvents="none" glassEffectStyle="regular"
+      style={[StyleSheet.absoluteFillObject, { borderRadius: radius }]} />;
   }
-  return (
-    <BlurView pointerEvents="none" tint="dark" intensity={intensity}
-      style={[StyleSheet.absoluteFillObject, { borderRadius: radius }]} />
-  );
-}
-
-// Rouage vectoriel dessiné avec du texte monochrome (pas l'emoji métallique iOS).
-function GearGlyph({ close = false }) {
-  return (
-    <Text style={{ fontSize: close ? 28 : 31, fontWeight: '500', color: '#ffffff',
-      textAlign: 'center', includeFontPadding: false, lineHeight: 36 }}>
-      {close ? '×' : '⚙︎'}
-    </Text>
-  );
+  return <BlurView pointerEvents="none" tint="dark" intensity={intensity}
+    style={[StyleSheet.absoluteFillObject, { borderRadius: radius }]} />;
 }
 
 // ---------------------------------------------------------------- carte Liquid Glass d'un minuteur
@@ -481,6 +460,11 @@ export default function App() {
       }]} />
       <StatusBar barStyle={glass ? 'light-content' : light ? 'dark-content' : 'light-content'} />
       <ScrollView key={page} contentContainerStyle={[styles.content, { paddingBottom: 112 }]}>
+        {glass && <View style={{ alignSelf: 'stretch', backgroundColor: 'rgba(0,12,38,0.88)', padding: 12, borderRadius: 12, marginBottom: 12, borderWidth: 1, borderColor: '#91b8ff' }}>
+          <Text selectable style={{ color: '#ffffff', fontSize: 13, fontWeight: '800' }}>DIAGNOSTIC LIQUID GLASS</Text>
+          <Text selectable style={{ color: '#ffffff', fontSize: 12, marginTop: 4 }}>API native : {NATIVE_GLASS_API ? 'OUI' : 'NON'}  |  Matériau Apple : {NATIVE_GLASS_MATERIAL ? 'OUI' : 'NON'}</Text>
+          <Text style={{ color: '#c7e0ff', fontSize: 11, marginTop: 3 }}>{NATIVE_GLASS_OK ? 'Verre natif activé' : 'Repli expo-blur activé'}</Text>
+        </View>}
         <View style={styles.topHeading}>
           <View style={{ flex: 1 }}>
             <Text style={[styles.title, light && lightStyles.text]}>
@@ -490,7 +474,7 @@ export default function App() {
           </View>
           <TouchableOpacity accessibilityLabel="Ouvrir les réglages" onPress={() => openPage(settings ? 'home' : 'settings')} style={[styles.gearButton, glass ? styles.glassPanel : light ? styles.lightPanel : styles.darkPanel]}>
             {glass && <GlassLayer radius={24} />}
-            {glass ? <GearGlyph close={settings} /> : <Text style={{ fontSize: 25, color: light ? '#465877' : '#fff' }}>{settings ? '×' : '⚙︎'}</Text>}
+            <Text style={{ fontSize: 25, color: glass ? '#fff' : light ? '#465877' : '#fff' }}>{settings ? '×' : '⚙︎'}</Text>
           </TouchableOpacity>
         </View>
         {settings ? (
@@ -638,7 +622,7 @@ const styles = StyleSheet.create({
   topHeading: { width: '100%', maxWidth: 420, flexDirection: 'row', alignItems: 'center', marginBottom: 18 },
   headerCaption: { fontSize: 13, marginTop: -9, marginBottom: 8 },
   gearButton: { width: 48, height: 48, borderRadius: 24, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.55)' },
-  glassPanel: { backgroundColor: 'transparent', borderColor: 'rgba(220,235,255,0.75)', borderWidth: 1, overflow: 'hidden' },
+  glassPanel: { backgroundColor: 'transparent', borderColor: 'rgba(210,228,255,0.65)', borderWidth: 1, overflow: 'hidden' },
   lightPanel: { backgroundColor: 'rgba(255,255,255,0.90)', borderColor: 'rgba(210,222,244,0.8)', borderWidth: 1 },
   darkPanel: { backgroundColor: 'rgba(27,35,57,0.90)', borderColor: 'rgba(255,255,255,0.2)', borderWidth: 1 },
   glassTimerCard: { width: '100%', maxWidth: 420, borderRadius: 28, padding: 18, marginBottom: 15, overflow: 'hidden', shadowColor: '#667eac', shadowOpacity: 0.13, shadowRadius: 15, shadowOffset: { width: 0, height: 8 }, elevation: 3 },
@@ -739,4 +723,4 @@ const lightStyles = StyleSheet.create({
   activeTab: { backgroundColor: '#dce0e9' },
 });
 
-const glassStyles = StyleSheet.create({ nav: { backgroundColor: 'transparent', borderColor: 'rgba(255,255,255,0.55)' }, card: { backgroundColor: 'transparent', borderWidth: 1, borderColor: 'rgba(215,230,255,0.55)' } });
+const glassStyles = StyleSheet.create({ nav: { backgroundColor: 'transparent', borderColor: 'rgba(255,255,255,0.48)' }, card: { backgroundColor: 'transparent', borderWidth: 1, borderColor: 'rgba(215,230,255,0.55)' } });
