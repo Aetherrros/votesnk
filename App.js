@@ -215,12 +215,30 @@ const NATIVE_GLASS_API = (() => { try { return isGlassEffectAPIAvailable(); } ca
 const NATIVE_GLASS_MATERIAL = (() => { try { return isLiquidGlassAvailable(); } catch (_) { return false; } })();
 const NATIVE_GLASS_OK = NATIVE_GLASS_API && NATIVE_GLASS_MATERIAL;
 
-// Flou garanti sur les fonds intégrés : on affiche une version déjà floutée
-// du même paysage, recadrée au même endroit que l'image nette fixe.
-// Seul le contenu du panneau est masqué par les coins arrondis.
-// Panneau de secours : aucun calque plein écran, aucune image superposée.
-// On rétablira un vrai flou localisé après validation du fonctionnement.
-function GlassLayer() { return null; }
+// Matériau Liquid Glass.
+// - iOS 26+ (build Xcode 26) : vrai verre natif (GlassView) qui réfracte le fond d'écran.
+// - Sinon : flou temps réel (BlurView) + voile clair + reflet en haut, qui imitent le verre.
+// La couche est posée DERRIÈRE le contenu : le parent doit avoir un fond transparent.
+function GlassLayer({ radius = 24, tint, clear = false }) {
+  const shape = { ...StyleSheet.absoluteFillObject, borderRadius: radius, overflow: 'hidden' };
+  if (NATIVE_GLASS_OK) {
+    return (
+      <GlassView
+        pointerEvents="none"
+        glassEffectStyle={clear ? 'clear' : 'regular'}
+        tintColor={tint}
+        style={shape}
+      />
+    );
+  }
+  return (
+    <View pointerEvents="none" style={shape}>
+      <BlurView intensity={clear ? 28 : 45} tint="dark" style={StyleSheet.absoluteFill} />
+      <View style={[StyleSheet.absoluteFill, { backgroundColor: tint || 'rgba(255,255,255,0.10)' }]} />
+      <View style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '42%', backgroundColor: 'rgba(255,255,255,0.07)' }} />
+    </View>
+  );
+}
 
 // ---------------------------------------------------------------- carte Liquid Glass d'un minuteur
 function SiteCard({ site, ts, now, onVote, onReset, onEdit, light, glass, wallpaperSource, blurredWallpaperSource, scrollY, screenWidth, screenHeight }) {
@@ -242,12 +260,13 @@ function SiteCard({ site, ts, now, onVote, onReset, onEdit, light, glass, wallpa
             {ready ? 'Prêt à voter' : `Toutes les ${site.cooldown} min`}
           </Text>
         </View>
-        <TouchableOpacity accessibilityLabel={'Modifier ' + site.label} onPress={onEdit} style={styles.flatMenu}>
+        <TouchableOpacity accessibilityLabel={'Modifier ' + site.label} onPress={onEdit} style={[styles.flatMenu, glass && styles.flatMenuGlass]}>
+          {glass && <GlassLayer radius={18} clear />}
           <Text style={{ color: glass ? '#fff' : light ? '#485773' : '#fff', fontSize: 24, lineHeight: 26 }}>···</Text>
         </TouchableOpacity>
       </View>
       <View style={styles.timerCenter}>
-        <View style={[styles.timerCircle, { borderColor: ready ? '#a7e9d8' : '#b9c7f9' }]}>
+        <View style={[styles.timerCircle, { borderColor: ready ? '#a7e9d8' : '#b9c7f9' }, glass && styles.timerCircleGlass]}>
           <View style={[styles.timerRingInner, { borderTopColor: tint, borderRightColor: tint, transform: [{ rotate: `${Math.round(elapsed * 270)}deg` }] }]} />
           <Text style={[styles.timerClock, { color: glass ? '#fff' : light ? '#26334f' : '#fff' }]}>
             {String(h).padStart(2,'0')}:{String(m).padStart(2,'0')}:{String(sec).padStart(2,'0')}
@@ -256,10 +275,12 @@ function SiteCard({ site, ts, now, onVote, onReset, onEdit, light, glass, wallpa
         </View>
       </View>
       <View style={styles.timerButtons}>
-        <TouchableOpacity onPress={onVote} style={styles.voteGlassButton}>
+        <TouchableOpacity onPress={onVote} style={[styles.voteGlassButton, glass && styles.voteGlassButtonG]}>
+          {glass && <GlassLayer radius={17} tint="rgba(35,121,255,0.70)" />}
           <Text style={styles.voteGlassText}>↗  Voter</Text>
         </TouchableOpacity>
-        <TouchableOpacity onPress={onReset} style={styles.resetGlassButton}>
+        <TouchableOpacity onPress={onReset} style={[styles.resetGlassButton, glass && styles.resetGlassButtonG]}>
+          {glass && <GlassLayer radius={17} clear />}
           <Text style={styles.resetGlassText}>↻  Réinitialiser</Text>
         </TouchableOpacity>
       </View>
@@ -481,7 +502,7 @@ export default function App() {
             {!settings && <Text style={[styles.headerCaption, { color: glass ? '#ffffff' : light ? '#65738e' : '#c4cee0' }]}>Tes rappels de vote, au bon moment</Text>}
           </View>
           <TouchableOpacity accessibilityLabel="Ouvrir les réglages" onPress={() => openPage(settings ? 'home' : 'settings')} style={[styles.gearButton, glass ? styles.glassPanel : light ? styles.lightPanel : styles.darkPanel]}>
-            {glass && <GlassLayer radius={24} wallpaperSource={wallpaperSource} blurredWallpaperSource={blurredWallpaperSource} />}
+            {glass && <GlassLayer radius={29} />}
             <Text style={{ fontSize: 25, color: glass ? '#fff' : light ? '#465877' : '#fff' }}>{settings ? '×' : '⚙︎'}</Text>
           </TouchableOpacity>
         </View>
@@ -572,14 +593,7 @@ export default function App() {
 
 
         <View style={[styles.player, light && lightStyles.card, glass && glassStyles.card]}>
-          {glass && (
-            <View pointerEvents="none" collapsable={false} style={{ ...StyleSheet.absoluteFillObject, borderRadius: 18, overflow: 'hidden' }}>
-              <Image source={blurredWallpaperSource || wallpaperSource} resizeMode="cover"
-                blurRadius={blurredWallpaperSource ? 0 : 28}
-                style={{ width: '100%', height: '100%' }} />
-              <View style={{ ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(14, 30, 67, 0.35)', borderRadius: 18, borderWidth: 1.5, borderColor: 'rgba(235,245,255,0.85)' }} />
-            </View>
-          )}
+          {glass && <GlassLayer radius={18} />}
           <Image source={require('./assets/head.png')} style={styles.head} />
           <View style={{ flex: 1, marginLeft: 14 }}>
             <Text style={[styles.joueur, light && lightStyles.muted, glass && styles.glassMuted]}>Joueur</Text>
@@ -619,7 +633,7 @@ export default function App() {
         {glass && <GlassLayer radius={30} wallpaperSource={wallpaperSource} blurredWallpaperSource={blurredWallpaperSource} />}
         {[['home','⌂','Accueil'],['sites','☷','Sites']].map(([id, icon, label]) => (
           <TouchableOpacity key={id} accessibilityLabel={label} onPress={() => openPage(id)}
-            style={[styles.navItem, page === id && styles.navActive]}>
+            style={[styles.navItem, page === id && styles.navActive, glass && page === id && styles.navActiveGlass]}>
             <Text style={[styles.navIcon, { color: page === id ? '#ffffff' : (glass ? '#e2eaff' : light ? '#333' : '#d7e0f5') }]}>{icon}</Text>
             <Text style={[styles.navLabel, { color: page === id ? '#ffffff' : (glass ? '#e2eaff' : light ? '#333' : '#d7e0f5') }]}>{label}</Text>
           </TouchableOpacity>
@@ -639,9 +653,14 @@ const styles = StyleSheet.create({
   topHeading: { width: '100%', maxWidth: 420, flexDirection: 'row', alignItems: 'center', marginBottom: 18 },
   headerCaption: { fontSize: 13, marginTop: -9, marginBottom: 8 },
   gearButton: { width: 58, height: 58, borderRadius: 29, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.55)' },
-  glassPanel: { backgroundColor: 'rgba(21,39,77,0.75)', borderColor: 'rgba(210,228,255,0.65)', borderWidth: 1, overflow: 'hidden' },
+  glassPanel: { backgroundColor: 'transparent', borderColor: 'rgba(255,255,255,0.34)', borderWidth: 1, overflow: 'hidden' },
   lightPanel: { backgroundColor: 'rgba(255,255,255,0.90)', borderColor: 'rgba(210,222,244,0.8)', borderWidth: 1 },
   darkPanel: { backgroundColor: 'rgba(27,35,57,0.90)', borderColor: 'rgba(255,255,255,0.2)', borderWidth: 1 },
+  flatMenuGlass: { borderRadius: 18, borderWidth: 1, borderColor: 'rgba(255,255,255,0.34)', overflow: 'hidden' },
+  timerCircleGlass: { backgroundColor: 'rgba(8,16,42,0.30)' },
+  voteGlassButtonG: { backgroundColor: 'transparent', overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(170,205,255,0.75)', shadowColor: '#2379ff', shadowOpacity: 0.55, shadowRadius: 12, shadowOffset: { width: 0, height: 4 } },
+  resetGlassButtonG: { backgroundColor: 'transparent', overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(255,255,255,0.34)' },
+  navActiveGlass: { backgroundColor: 'rgba(35,126,255,0.80)', borderWidth: 1, borderColor: 'rgba(170,205,255,0.7)' },
   glassTimerCard: { width: '100%', maxWidth: 420, borderRadius: 28, padding: 18, marginBottom: 15, overflow: 'hidden', shadowColor: '#667eac', shadowOpacity: 0.13, shadowRadius: 15, shadowOffset: { width: 0, height: 8 }, elevation: 3 },
   timerTop: { flexDirection: 'row', alignItems: 'center' },
   timerTitle: { fontSize: 19, fontWeight: '800' },
@@ -740,4 +759,4 @@ const lightStyles = StyleSheet.create({
   activeTab: { backgroundColor: '#dce0e9' },
 });
 
-const glassStyles = StyleSheet.create({ nav: { backgroundColor: 'rgba(21,39,77,0.75)', borderColor: 'rgba(255,255,255,0.48)' }, card: { backgroundColor: 'rgba(21,39,77,0.75)', borderWidth: 1, borderColor: 'rgba(215,230,255,0.55)' } });
+const glassStyles = StyleSheet.create({ nav: { backgroundColor: 'transparent', borderColor: 'rgba(255,255,255,0.40)' }, card: { backgroundColor: 'transparent', borderWidth: 1, borderColor: 'rgba(255,255,255,0.34)' } });
