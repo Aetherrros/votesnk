@@ -572,7 +572,14 @@ export default function App() {
 
 
         <View style={[styles.player, light && lightStyles.card, glass && glassStyles.card]}>
-          {glass && <GlassLayer radius={18} wallpaperSource={wallpaperSource} blurredWallpaperSource={blurredWallpaperSource} />}
+          {glass && (
+            <View pointerEvents="none" collapsable={false} style={{ ...StyleSheet.absoluteFillObject, borderRadius: 18, overflow: 'hidden' }}>
+              <Image source={blurredWallpaperSource || wallpaperSource} resizeMode="cover"
+                blurRadius={blurredWallpaperSource ? 0 : 28}
+                style={{ width: '100%', height: '100%' }} />
+              <View style={{ ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(14, 30, 67, 0.35)', borderRadius: 18, borderWidth: 1.5, borderColor: 'rgba(235,245,255,0.85)' }} />
+            </View>
+          )}
           <Image source={require('./assets/head.png')} style={styles.head} />
           <View style={{ flex: 1, marginLeft: 14 }}>
             <Text style={[styles.joueur, light && lightStyles.muted, glass && styles.glassMuted]}>Joueur</Text>
