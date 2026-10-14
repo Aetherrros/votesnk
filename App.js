@@ -590,6 +590,19 @@ export default function App() {
         ) : (<>
 
 
+        {glass && (
+          <View style={{ flexDirection: 'row', gap: 8, marginBottom: 12 }}>
+            {[['A rouge', 0], ['B flou', 1], ['C verre', 2], ['D verre bleu', 3]].map(([label, i]) => (
+              <View key={label} style={{ width: 76, height: 76, borderRadius: 18, overflow: 'hidden', justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: '#fff' }}>
+                {i === 0 && <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(255,0,0,0.5)' }]} />}
+                {i === 1 && <BlurView intensity={80} tint="dark" style={StyleSheet.absoluteFill} />}
+                {i === 2 && <GlassView style={StyleSheet.absoluteFill} />}
+                {i === 3 && <GlassView glassEffectStyle="clear" tintColor="rgba(35,121,255,0.7)" style={StyleSheet.absoluteFill} />}
+                <Text style={{ color: '#fff', fontSize: 11, fontWeight: '700' }}>{label}</Text>
+              </View>
+            ))}
+          </View>
+        )}
         <View style={[styles.player, light && lightStyles.card, glass && glassStyles.card]}>
           {glass && <GlassLayer radius={18} />}
           <Image source={require('./assets/head.png')} style={styles.head} />
