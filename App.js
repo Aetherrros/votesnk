@@ -218,24 +218,9 @@ const NATIVE_GLASS_OK = NATIVE_GLASS_API && NATIVE_GLASS_MATERIAL;
 // Flou garanti sur les fonds intégrés : on affiche une version déjà floutée
 // du même paysage, recadrée au même endroit que l'image nette fixe.
 // Seul le contenu du panneau est masqué par les coins arrondis.
-function GlassLayer({ radius = 26, wallpaperSource, blurredWallpaperSource }) {
-  // Sécurité : aucune image plus grande que le panneau. L'image est toujours
-  // confinée dans les limites de la carte, même pendant le défilement.
-  return (
-    <View pointerEvents="none" collapsable={false}
-      style={[StyleSheet.absoluteFillObject, { borderRadius: radius, overflow: 'hidden',
-        backgroundColor: 'rgba(17, 38, 83, 0.64)' }]}>
-      <Image pointerEvents="none" source={blurredWallpaperSource || wallpaperSource}
-        resizeMode="cover" blurRadius={blurredWallpaperSource ? 0 : 32}
-        style={StyleSheet.absoluteFillObject} />
-      <View pointerEvents="none" style={[StyleSheet.absoluteFillObject,
-        { backgroundColor: 'rgba(15, 35, 75, 0.47)' }]} />
-      <View pointerEvents="none" style={[StyleSheet.absoluteFillObject,
-        { borderWidth: 1, borderRadius: radius,
-          borderColor: 'rgba(223,239,255,0.65)' }]} />
-    </View>
-  );
-}
+// Panneau de secours : aucun calque plein écran, aucune image superposée.
+// On rétablira un vrai flou localisé après validation du fonctionnement.
+function GlassLayer() { return null; }
 
 // ---------------------------------------------------------------- carte Liquid Glass d'un minuteur
 function SiteCard({ site, ts, now, onVote, onReset, onEdit, light, glass, wallpaperSource, blurredWallpaperSource, scrollY, screenWidth, screenHeight }) {
@@ -647,7 +632,7 @@ const styles = StyleSheet.create({
   topHeading: { width: '100%', maxWidth: 420, flexDirection: 'row', alignItems: 'center', marginBottom: 18 },
   headerCaption: { fontSize: 13, marginTop: -9, marginBottom: 8 },
   gearButton: { width: 58, height: 58, borderRadius: 29, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.55)' },
-  glassPanel: { backgroundColor: 'transparent', borderColor: 'rgba(210,228,255,0.65)', borderWidth: 1, overflow: 'hidden' },
+  glassPanel: { backgroundColor: 'rgba(21,39,77,0.75)', borderColor: 'rgba(210,228,255,0.65)', borderWidth: 1, overflow: 'hidden' },
   lightPanel: { backgroundColor: 'rgba(255,255,255,0.90)', borderColor: 'rgba(210,222,244,0.8)', borderWidth: 1 },
   darkPanel: { backgroundColor: 'rgba(27,35,57,0.90)', borderColor: 'rgba(255,255,255,0.2)', borderWidth: 1 },
   glassTimerCard: { width: '100%', maxWidth: 420, borderRadius: 28, padding: 18, marginBottom: 15, overflow: 'hidden', shadowColor: '#667eac', shadowOpacity: 0.13, shadowRadius: 15, shadowOffset: { width: 0, height: 8 }, elevation: 3 },
@@ -748,4 +733,4 @@ const lightStyles = StyleSheet.create({
   activeTab: { backgroundColor: '#dce0e9' },
 });
 
-const glassStyles = StyleSheet.create({ nav: { backgroundColor: 'transparent', borderColor: 'rgba(255,255,255,0.48)' }, card: { backgroundColor: 'transparent', borderWidth: 1, borderColor: 'rgba(215,230,255,0.55)' } });
+const glassStyles = StyleSheet.create({ nav: { backgroundColor: 'rgba(21,39,77,0.75)', borderColor: 'rgba(255,255,255,0.48)' }, card: { backgroundColor: 'rgba(21,39,77,0.75)', borderWidth: 1, borderColor: 'rgba(215,230,255,0.55)' } });
