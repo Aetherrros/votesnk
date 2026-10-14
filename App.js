@@ -216,26 +216,23 @@ const NATIVE_GLASS_MATERIAL = (() => { try { return isLiquidGlassAvailable(); } 
 const NATIVE_GLASS_OK = NATIVE_GLASS_API && NATIVE_GLASS_MATERIAL;
 
 // Matériau Liquid Glass.
-// - iOS 26+ (build Xcode 26) : vrai verre natif (GlassView) qui réfracte le fond d'écran.
-// - Sinon : flou temps réel (BlurView) + voile clair + reflet en haut, qui imitent le verre.
+// Le flou + la teinte + le reflet sont TOUJOURS dessinés (donc visibles même si le verre natif
+// n'affiche rien). Sur iOS 26, le vrai verre natif (GlassView) est ajouté par-dessus.
 // La couche est posée DERRIÈRE le contenu : le parent doit avoir un fond transparent.
 function GlassLayer({ radius = 24, tint, clear = false }) {
-  const shape = { ...StyleSheet.absoluteFillObject, borderRadius: radius, overflow: 'hidden' };
-  if (NATIVE_GLASS_OK) {
-    return (
-      <GlassView
-        pointerEvents="none"
-        glassEffectStyle={clear ? 'clear' : 'regular'}
-        tintColor={tint}
-        style={shape}
-      />
-    );
-  }
   return (
-    <View pointerEvents="none" style={shape}>
-      <BlurView intensity={clear ? 28 : 45} tint="dark" style={StyleSheet.absoluteFill} />
+    <View pointerEvents="none" style={{ ...StyleSheet.absoluteFillObject, borderRadius: radius, overflow: 'hidden' }}>
+      <BlurView intensity={clear ? 40 : 65} tint="dark" style={StyleSheet.absoluteFill} />
       <View style={[StyleSheet.absoluteFill, { backgroundColor: tint || 'rgba(255,255,255,0.10)' }]} />
-      <View style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '42%', backgroundColor: 'rgba(255,255,255,0.07)' }} />
+      <View style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '42%', backgroundColor: 'rgba(255,255,255,0.08)' }} />
+      {NATIVE_GLASS_OK && (
+        <GlassView
+          glassEffectStyle={clear ? 'clear' : 'regular'}
+          colorScheme="dark"
+          tintColor={tint}
+          style={StyleSheet.absoluteFill}
+        />
+      )}
     </View>
   );
 }
@@ -497,7 +494,7 @@ export default function App() {
         <View style={styles.topHeading}>
           <View style={{ flex: 1 }}>
             <Text style={[styles.title, light && lightStyles.text]}>
-              {settings ? 'Réglages' : page === 'sites' ? 'Mes sites' : <><Text>Noti</Text><Text style={{ color: '#617af4' }}>Rappel</Text></>}
+              {settings ? 'Réglages' : page === 'sites' ? 'Mes sites' : <><Text>Noti</Text><Text style={{ color: glass ? '#d6e4ff' : '#617af4' }}>Rappel</Text></>}
             </Text>
             {!settings && <Text style={[styles.headerCaption, { color: glass ? '#ffffff' : light ? '#65738e' : '#c4cee0' }]}>Tes rappels de vote, au bon moment</Text>}
           </View>
@@ -520,6 +517,7 @@ export default function App() {
             {settingsTab === 'appearance' ? (
               <>
                 <Text style={[styles.sectionTitle, light && lightStyles.text, glass && styles.glassText]}>Thème de l'application</Text>
+                <Text style={[styles.hint, light && lightStyles.muted, glass && styles.glassMuted]}>{`Verre natif iOS 26 : ${NATIVE_GLASS_OK ? 'oui' : 'non'}  (API : ${NATIVE_GLASS_API ? 'oui' : 'non'}, matériau : ${NATIVE_GLASS_MATERIAL ? 'oui' : 'non'})`}</Text>
                 {[['light','☀  Clair'], ['dark','☾  Sombre'], ['system','▣  Identique au système'], ['glass','✦  Liquid Glass']].map(([id,label]) => (
                   <TouchableOpacity key={id} style={[styles.managedRow, light && lightStyles.divider]} onPress={() => chooseAppearance(id)}>
                     <Text style={[styles.soundText, light && lightStyles.text, glass && styles.glassText]}>{appearance === id ? '◉' : '○'}   {label}</Text>
