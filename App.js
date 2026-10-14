@@ -98,6 +98,9 @@ const WALLPAPER_NAMES = ['Jour', 'Coucher de soleil', 'Nuit', 'Neige', 'Portail 
 
 const SETTINGS_KEY = 'snkmc_settings_v1';
 
+// Remplit son parent. Écrit à la main car StyleSheet.absoluteFillObject a été supprimé de React Native 0.85+.
+const FILL = { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 };
+
 
 const TW = 46, TH = 64, HALF = 32;
 const THEMES = {
@@ -221,16 +224,16 @@ const NATIVE_GLASS_OK = NATIVE_GLASS_API && NATIVE_GLASS_MATERIAL;
 // La couche est posée DERRIÈRE le contenu : le parent doit avoir un fond transparent.
 function GlassLayer({ radius = 24, tint, clear = false }) {
   return (
-    <View pointerEvents="none" style={{ ...StyleSheet.absoluteFillObject, borderRadius: radius, overflow: 'hidden' }}>
-      <BlurView intensity={clear ? 40 : 65} tint="dark" style={StyleSheet.absoluteFill} />
-      <View style={[StyleSheet.absoluteFill, { backgroundColor: tint || 'rgba(255,255,255,0.10)' }]} />
+    <View pointerEvents="none" style={{ ...FILL, borderRadius: radius, overflow: 'hidden' }}>
+      <BlurView intensity={clear ? 40 : 65} tint="dark" style={FILL} />
+      <View style={[FILL, { backgroundColor: tint || 'rgba(255,255,255,0.10)' }]} />
       <View style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '42%', backgroundColor: 'rgba(255,255,255,0.08)' }} />
       {NATIVE_GLASS_OK && (
         <GlassView
           glassEffectStyle={clear ? 'clear' : 'regular'}
           colorScheme="dark"
           tintColor={tint}
-          style={StyleSheet.absoluteFill}
+          style={FILL}
         />
       )}
     </View>
@@ -485,7 +488,7 @@ export default function App() {
       style={[styles.screen, { backgroundColor: '#e7efff' }]}
       imageStyle={{ width: '100%', height: '100%' }}
     >
-      <View pointerEvents="none" style={[StyleSheet.absoluteFillObject, {
+      <View pointerEvents="none" style={[FILL, {
         backgroundColor: glass ? 'rgba(4,10,31,0.18)' : light ? 'rgba(255,255,255,0.16)' : 'rgba(7,15,36,0.24)',
       }]} />
       <StatusBar barStyle={glass ? 'light-content' : light ? 'dark-content' : 'light-content'} />
@@ -590,19 +593,6 @@ export default function App() {
         ) : (<>
 
 
-        {glass && (
-          <View style={{ flexDirection: 'row', gap: 8, marginBottom: 12 }}>
-            {[['A rouge', 0], ['B flou', 1], ['C verre', 2], ['D verre bleu', 3]].map(([label, i]) => (
-              <View key={label} style={{ width: 76, height: 76, borderRadius: 18, overflow: 'hidden', justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: '#fff' }}>
-                {i === 0 && <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(255,0,0,0.5)' }]} />}
-                {i === 1 && <BlurView intensity={80} tint="dark" style={StyleSheet.absoluteFill} />}
-                {i === 2 && <GlassView style={StyleSheet.absoluteFill} />}
-                {i === 3 && <GlassView glassEffectStyle="clear" tintColor="rgba(35,121,255,0.7)" style={StyleSheet.absoluteFill} />}
-                <Text style={{ color: '#fff', fontSize: 11, fontWeight: '700' }}>{label}</Text>
-              </View>
-            ))}
-          </View>
-        )}
         <View style={[styles.player, light && lightStyles.card, glass && glassStyles.card]}>
           {glass && <GlassLayer radius={18} />}
           <Image source={require('./assets/head.png')} style={styles.head} />
