@@ -1,6 +1,6 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
 import {
-  Alert, Animated, Easing, Image, ImageBackground, Linking, ScrollView, StatusBar, StyleSheet,
+  Alert, Animated, Easing, Image, ImageBackground, Linking, PanResponder, ScrollView, StatusBar, StyleSheet,
   Text, TextInput, TouchableOpacity, View, useColorScheme, useWindowDimensions,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -222,12 +222,18 @@ const NATIVE_GLASS_OK = NATIVE_GLASS_API && NATIVE_GLASS_MATERIAL;
 // Le flou + la teinte + le reflet sont TOUJOURS dessinés (donc visibles même si le verre natif
 // n'affiche rien). Sur iOS 26, le vrai verre natif (GlassView) est ajouté par-dessus.
 // La couche est posée DERRIÈRE le contenu : le parent doit avoir un fond transparent.
+const GlassLevelContext = createContext(55);
+
 function GlassLayer({ radius = 24, tint, clear = false }) {
+  const level = useContext(GlassLevelContext); // 0 à 100, réglé dans Réglages > Apparence
+  const blur = Math.round(clear ? 12 + level * 0.55 : 20 + level * 0.8);
+  const veil = (0.03 + level * 0.0014).toFixed(3);
+  const shine = (0.03 + level * 0.0007).toFixed(3);
   return (
     <View pointerEvents="none" style={{ ...FILL, borderRadius: radius, overflow: 'hidden' }}>
-      <BlurView intensity={clear ? 40 : 65} tint="dark" style={FILL} />
-      <View style={[FILL, { backgroundColor: tint || 'rgba(255,255,255,0.10)' }]} />
-      <View style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '42%', backgroundColor: 'rgba(255,255,255,0.08)' }} />
+      <BlurView intensity={blur} tint="dark" style={FILL} />
+      <View style={[FILL, { backgroundColor: tint || `rgba(255,255,255,${veil})` }]} />
+      <View style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '42%', backgroundColor: `rgba(255,255,255,${shine})` }} />
       {NATIVE_GLASS_OK && (
         <GlassView
           glassEffectStyle={clear ? 'clear' : 'regular'}
@@ -236,6 +242,43 @@ function GlassLayer({ radius = 24, tint, clear = false }) {
           style={FILL}
         />
       )}
+    </View>
+  );
+}
+
+// Barre d'intensité (sans bibliothèque) : toucher ou glisser, 0 à 100.
+function GlassSlider({ value, onChange, onEnd }) {
+  const cb = useRef({});
+  cb.current = { onChange, onEnd };
+  const widthRef = useRef(1);
+  const startVal = useRef(value);
+  const last = useRef(value);
+  const clamp = (v) => Math.max(0, Math.min(100, Math.round(v)));
+  const pan = useRef(PanResponder.create({
+    onStartShouldSetPanResponder: () => true,
+    onMoveShouldSetPanResponder: () => true,
+    onPanResponderTerminationRequest: () => false,
+    onPanResponderGrant: (e) => {
+      const v = clamp((e.nativeEvent.locationX / widthRef.current) * 100);
+      startVal.current = v; last.current = v; cb.current.onChange(v);
+    },
+    onPanResponderMove: (e, g) => {
+      const v = clamp(startVal.current + (g.dx / widthRef.current) * 100);
+      last.current = v; cb.current.onChange(v);
+    },
+    onPanResponderRelease: () => cb.current.onEnd(last.current),
+    onPanResponderTerminate: () => cb.current.onEnd(last.current),
+  })).current;
+  return (
+    <View
+      onLayout={(e) => { widthRef.current = e.nativeEvent.layout.width || 1; }}
+      style={{ height: 44, justifyContent: 'center' }}
+      {...pan.panHandlers}
+    >
+      <View pointerEvents="none" style={{ height: 8, borderRadius: 4, backgroundColor: 'rgba(255,255,255,0.28)' }}>
+        <View style={{ width: `${value}%`, height: 8, borderRadius: 4, backgroundColor: '#4f8dff' }} />
+      </View>
+      <View pointerEvents="none" style={{ position: 'absolute', left: `${value}%`, marginLeft: -15, width: 30, height: 30, borderRadius: 15, backgroundColor: '#fff', borderWidth: 1, borderColor: 'rgba(255,255,255,0.9)', shadowColor: '#000', shadowOpacity: 0.35, shadowRadius: 6, shadowOffset: { width: 0, height: 2 } }} />
     </View>
   );
 }
@@ -300,6 +343,7 @@ export default function App() {
   const [editingKey, setEditingKey] = useState(null);
   const [settingsTab, setSettingsTab] = useState('appearance');
   const [appearance, setAppearance] = useState('system');
+  const [glassLevel, setGlassLevel] = useState(55);
   const [wallpaper, setWallpaper] = useState('0');
   const systemTheme = useColorScheme();
   const glass = appearance === 'glass';
@@ -316,17 +360,21 @@ export default function App() {
   const previewRef = useRef(null);
 
   const persistSettings = async (list, selected) => {
-    try { await AsyncStorage.setItem(SETTINGS_KEY, JSON.stringify({ sites: list, sound: selected, appearance, wallpaper })); } catch (e) {}
+    try { await AsyncStorage.setItem(SETTINGS_KEY, JSON.stringify({ sites: list, sound: selected, appearance, wallpaper, glassLevel })); } catch (e) {}
   };
 
   const chooseAppearance = async (value) => {
     setAppearance(value);
-    try { await AsyncStorage.setItem(SETTINGS_KEY, JSON.stringify({ sites, sound, appearance: value, wallpaper })); } catch (e) {}
+    try { await AsyncStorage.setItem(SETTINGS_KEY, JSON.stringify({ sites, sound, appearance: value, wallpaper, glassLevel })); } catch (e) {}
+  };
+
+  const chooseGlassLevel = async (value) => {
+    try { await AsyncStorage.setItem(SETTINGS_KEY, JSON.stringify({ sites, sound, appearance, wallpaper, glassLevel: value })); } catch (e) {}
   };
 
   const chooseWallpaper = async (value) => {
     setWallpaper(value);
-    try { await AsyncStorage.setItem(SETTINGS_KEY, JSON.stringify({ sites, sound, appearance, wallpaper: value })); } catch (e) {}
+    try { await AsyncStorage.setItem(SETTINGS_KEY, JSON.stringify({ sites, sound, appearance, wallpaper: value, glassLevel })); } catch (e) {}
   };
 
   const chooseCustomWallpaper = async () => {
@@ -432,6 +480,7 @@ export default function App() {
       setSound(selectedSound);
       setAppearance(['light', 'dark', 'system', 'glass'].includes(cfg.appearance) ? cfg.appearance : 'dark');
       setWallpaper(typeof cfg.wallpaper === 'string' ? cfg.wallpaper : '0');
+      setGlassLevel(typeof cfg.glassLevel === 'number' ? Math.max(0, Math.min(100, cfg.glassLevel)) : 55);
       const p = st.pseudo || DEFAULT_PSEUDO;
       const n = st.next || {};
       setPseudo(p);
@@ -481,6 +530,7 @@ export default function App() {
   };
 
   return (
+    <GlassLevelContext.Provider value={glassLevel}>
     <ImageBackground
       key={wallpaper}
       source={wallpaperSource}
@@ -526,6 +576,16 @@ export default function App() {
                     <Text style={[styles.soundText, light && lightStyles.text, glass && styles.glassText]}>{appearance === id ? '◉' : '○'}   {label}</Text>
                   </TouchableOpacity>
                 ))}
+                {glass && (
+                  <View style={{ marginTop: 14 }}>
+                    <Text style={[styles.sectionTitle, glass && styles.glassText]}>{`Intensité du verre : ${glassLevel} %`}</Text>
+                    <GlassSlider value={glassLevel} onChange={setGlassLevel} onEnd={chooseGlassLevel} />
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                      <Text style={[styles.hint, glass && styles.glassMuted]}>Léger</Text>
+                      <Text style={[styles.hint, glass && styles.glassMuted]}>Intense</Text>
+                    </View>
+                  </View>
+                )}
                 {<>
                   <Text style={[styles.sectionTitle, { marginTop: 18 }]}>Fonds d'écran Minecraft</Text>
                   <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' }}>
@@ -641,6 +701,7 @@ export default function App() {
         ))}
       </View>
     </ImageBackground>
+    </GlassLevelContext.Provider>
   );
 }
 
