@@ -226,14 +226,22 @@ const GlassLevelContext = createContext(55);
 
 function GlassLayer({ radius = 24, tint, clear = false }) {
   const level = useContext(GlassLevelContext); // 0 à 100, réglé dans Réglages > Apparence
-  const blur = Math.round(clear ? 12 + level * 0.55 : 20 + level * 0.8);
-  const veil = (0.03 + level * 0.0014).toFixed(3);
-  const shine = (0.03 + level * 0.0007).toFixed(3);
+  // Sur iOS 26 le verre natif floute déjà le fond : dessous, on ne garde qu'un flou léger
+  // (sinon les couleurs s'écrasent en gris). Sans verre natif, on compense avec un flou plus fort.
+  const blur = NATIVE_GLASS_OK
+    ? Math.round((clear ? 0 : 4) + level * (clear ? 0.2 : 0.45))
+    : Math.round(clear ? 12 + level * 0.55 : 20 + level * 0.8);
+  const veil = NATIVE_GLASS_OK ? 0.02 + level * 0.0006 : 0.03 + level * 0.0014;
+  const shine = 0.03 + level * 0.0007;
+  const inset = Math.min(radius * 0.7, 26);
   return (
     <View pointerEvents="none" style={{ ...FILL, borderRadius: radius, overflow: 'hidden' }}>
-      <BlurView intensity={blur} tint="dark" style={FILL} />
-      <View style={[FILL, { backgroundColor: tint || `rgba(255,255,255,${veil})` }]} />
-      <View style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '42%', backgroundColor: `rgba(255,255,255,${shine})` }} />
+      {blur > 0 && <BlurView intensity={blur} tint="dark" style={FILL} />}
+      <View style={[FILL, { backgroundColor: tint || `rgba(255,255,255,${veil.toFixed(3)})` }]} />
+      {/* reflet doux en haut : trois bandes superposées pour éviter un bord net */}
+      {[0.42, 0.28, 0.14].map((h) => (
+        <View key={h} style={{ position: 'absolute', top: 0, left: 0, right: 0, height: `${h * 100}%`, backgroundColor: `rgba(255,255,255,${(shine / 3).toFixed(3)})` }} />
+      ))}
       {NATIVE_GLASS_OK && (
         <GlassView
           glassEffectStyle={clear ? 'clear' : 'regular'}
@@ -242,6 +250,10 @@ function GlassLayer({ radius = 24, tint, clear = false }) {
           style={FILL}
         />
       )}
+      {/* liseré lumineux : halo intérieur, contour fin et éclat sur le bord haut */}
+      <View style={{ ...FILL, borderRadius: radius, borderWidth: 6, borderColor: 'rgba(255,255,255,0.035)' }} />
+      <View style={{ ...FILL, borderRadius: radius, borderWidth: 1.2, borderColor: 'rgba(255,255,255,0.30)' }} />
+      <View style={{ position: 'absolute', top: 0.5, left: inset, right: inset, height: 1.5, borderRadius: 1, backgroundColor: 'rgba(255,255,255,0.55)' }} />
     </View>
   );
 }
